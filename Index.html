@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FlowType</title>
+    <style>
+        :root {
+            --bg-color: #060606;
+            --panel-bg: rgba(18, 18, 18, 0.85);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --text-color: #e0e0e0;
+            --accent-color: #ffffff;
+            --accent-hover: #cccccc;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            color: var(--text-color);
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Sidebar Control Panel */
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: calc(100vh - 40px);
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            opacity: 0.95;
+        }
+
+        #control-panel.collapsed {
+            transform: translateX(calc(100% + 20px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--panel-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--accent-color);
+        }
+
+        .panel-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Custom scrollbar for panel */
+        .panel-body::-webkit-scrollbar {
+            width: 5px;
+        }
+        .panel-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .panel-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .control-section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 4px;
+            margin-top: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-group label span.value {
+            color: var(--accent-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        textarea, input[type="text"], select {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px;
+            color: #fff;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus, input[type="text"]:focus, select:focus {
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        textarea {
+            min-height: 70px;
+            max-height: 140px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+            outline: none;
+            margin: 6px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            cursor: pointer;
+        }
+
+        .checkbox-row span {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="checkbox"] {
+            accent-color: #fff;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px;
+            color: #fff;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn.recording {
+            background: rgba(255, 60, 60, 0.3);
+            border-color: rgba(255, 60, 60, 0.6);
+            color: #ff9999;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; transform: scale(1.02); }
+            100% { opacity: 0.8; }
+        }
+
+        /* Toggle Panel Button */
+        #toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            z-index: 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        #toggle-btn:hover {
+            background: rgba(30, 30, 30, 0.9);
+            transform: scale(1.05);
+        }
+
+        #toggle-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #fff;
+        }
+
+        * {
+            user-select: none;
+            box-sizing: border-box;
+        }
+        
+        textarea, input {
+            user-select: text;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Toggle Button -->
+    <div id="toggle-btn" title="Toggle Controls">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </div>
+
+    <!-- Sidebar Control Panel -->
+    <div id="control-panel">
+        <div class="panel-header">
+            <h2>Installation Controls</h2>
+        </div>
+        <div class="panel-body">
+            
+            <div class="control-section-title">Typography</div>
+            
+            <!-- Text Input -->
+            <div class="control-group">
+                <label>Text Content</label>
+                <textarea id="inp-text">Flow Type</textarea>
+            </div>
+
+            <!-- Font Size & Weight -->
+            <div class="row">
+                <div class="control-group">
+                    <label>Font Size <span class="value" id="val-fontsize">18</span>vw</label>
+                    <input type="range" id="inp-fontsize" min="5" max="35" step="1" value="18">
+                </div>
+                <div class="control-group">
+                    <label>Font Weight</label>
+                    <select id="inp-weight">
+                        <option value="300">Light</option>
+                        <option value="400">Regular</option>
+                        <option value="600">SemiBold</option>
+                        <option value="700" selected>Bold</option>
+                        <option value="900">Black</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Letter Spacing & Line Height -->
+            <div class="row">
+                <div class="control-group">
+                    <label>Spacing <span class="value" id="val-spacing">0</span>px</label>
+                    <input type="range" id="inp-spacing" min="-5" max="30" step="1" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Line Height <span class="value" id="val-lineheight">1.1</span></label>
+                    <input type="range" id="inp-lineheight" min="0.8" max="2.0" step="0.05" value="1.1">
+                </div>
+            </div>
+
+            <!-- Text Alignment -->
+            <div class="control-group">
+                <label>Text Alignment</label>
+                <select id="inp-align">
+                    <option value="center" selected>Center</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
+
+            <!-- Toggles (Uppercase / Lowercase / Auto Fit) -->
+            <div class="row">
+                <label class="checkbox-row">
+                    <span>Uppercase</span>
+                    <input type="checkbox" id="inp-uppercase" checked>
+                </label>
+                <label class="checkbox-row">
+                    <span>Lowercase</span>
+                    <input type="checkbox" id="inp-lowercase">
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label class="checkbox-row">
+                    <span>Auto Fit Canvas</span>
+                    <input type="checkbox" id="inp-autofit" checked>
+                </label>
+            </div>
+
+            <!-- Outline Thickness & Offset -->
+            <div class="row">
+                <div class="control-group">
+                    <label>Thickness <span class="value" id="val-thickness">1.0</span>px</label>
+                    <input type="range" id="inp-thickness" min="0.2" max="3.0" step="0.1" value="1.0">
+                </div>
+                <div class="control-group">
+                    <label>Contour Offset <span class="value" id="val-offset">0</span>px</label>
+                    <input type="range" id="inp-offset" min="-10" max="10" step="1" value="0">
+                </div>
+            </div>
+
+            <div class="control-section-title">Dynamics & Noise</div>
+
+            <!-- Organic Distortion Master Slider -->
+            <div class="control-group">
+                <label>Organic Distortion <span class="value" id="val-distortion">3.0</span></label>
+                <input type="range" id="inp-distortion" min="0" max="10" step="0.1" value="3.0">
+            </div>
+
+            <!-- Separate Noise Scale Slider -->
+            <div class="control-group">
+                <label>Noise Scale <span class="value" id="val-noisescale">0.0015</span></label>
+                <input type="range" id="inp-noisescale" min="0.0005" max="0.0050" step="0.0001" value="0.0015">
+            </div>
+
+            <!-- Separate Flow Strength Slider -->
+            <div class="control-group">
+                <label>Flow Strength <span class="value" id="val-flowstrength">0.6</span></label>
+                <input type="range" id="inp-flowstrength" min="0.1" max="2.0" step="0.05" value="0.6">
+            </div>
+
+            <!-- Random Noise & Flow Button -->
+            <div class="control-group">
+                <button class="btn" id="btn-randomize-noise">Randomize Noise & Flow</button>
+            </div>
+
+            <div class="control-section-title">Color Palette & Opacity</div>
+
+            <!-- Color Palette Controls -->
+            <div class="row">
+                <div class="control-group">
+                    <label>Background</label>
+                    <input type="color" id="inp-bg-color" value="#060606">
+                </div>
+                <div class="control-group">
+                    <label>Primary</label>
+                    <input type="color" id="inp-line-color" value="#ffffff">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Secondary (Light Gray)</label>
+                <input type="color" id="inp-sub-color" value="#a0a0a0">
+            </div>
+
+            <!-- Alpha / Opacity Controls -->
+            <div class="row">
+                <div class="control-group">
+                    <label>Line Alpha <span class="value" id="val-alpha">0.08</span></label>
+                    <input type="range" id="inp-alpha" min="0.01" max="0.3" step="0.01" value="0.08">
+                </div>
+                <div class="control-group">
+                    <label>Glow Alpha <span class="value" id="val-glow">0.03</span></label>
+                    <input type="range" id="inp-glow" min="0.005" max="0.1" step="0.005" value="0.03">
+                </div>
+            </div>
+
+            <div class="control-section-title">Export & Recording</div>
+
+            <!-- Action Buttons -->
+            <div class="control-group">
+                <button class="btn" id="btn-export-png">Export PNG</button>
+            </div>
+            
+            <div class="row">
+                <button class="btn" id="btn-toggle-rec">Start Recording</button>
+                <button class="btn" id="btn-export-mp4" disabled>Export Video</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /**
+         * FLOWTYPE - Generative Motion Design Installation
+         * Enhanced with Organic Distortion master controller (0-10) mapping smoothly to noise amplitude, curl field, curvature, rotation, and displacement.
+         */
+
+        // ============================================================================
+        // CONFIGURATION PARAMETERS
+        // ============================================================================
+        const CONFIG = {
+            POINT_COUNT: 8000,            
+            NEIGHBOR_COUNT: 4,            
+            NOISE_SCALE: 0.0015,          
+            NOISE_SPEED: 0.0004,          
+            FBM_OCTAVES: 3,               
+            DRIFT: 0.5,                   
+            SPRING_FORCE: 0.015,          
+            DAMPING: 0.88,                
+            LINE_WIDTH: 1.0,              
+            LINE_ALPHA: 0.08,             
+            GLOW_ALPHA: 0.03,             
+            FLOW_STRENGTH: 0.6,           
+            CURVE_TENSION: 0.5,           
+            MOUSE_RADIUS: 200,            
+            MOUSE_FORCE: 0.08,            
+            ANIMATION_SPEED: 1.0,         
+            PIXEL_RATIO: window.devicePixelRatio || 1,
+            
+            // Organic Distortion (0 to 10)
+            ORGANIC_DISTORTION: 3.0
+        };
+
+        const TYPO_CONFIG = {
+            text: "Flow Type",
+            fontSizeVW: 18,
+            fontWeight: "700",
+            letterSpacing: 0,
+            lineHeight: 1.1,
+            align: "center",
+            uppercase: true,
+            lowercase: false,
+            autoFit: true,
+            outlineThickness: 1.0,
+            outlineOffset: 0
+        };
+
+        const COLOR_CONFIG = {
+            bgColor: "#060606",
+            lineColor: "#ffffff",
+            subColor: "#a0a0a0"
+        };
+
+        // ============================================================================
+        // GLOBALS & STATE
+        // ============================================================================
+        let canvas, ctx;
+        let width, height;
+        let points = [];
+        let time = 0;
+        let mouse = { x: -1000, y: -1000, vx: 0, vy: 0 };
+        let spatialGrid = new Map();
+        let cellSize = 15;
+
+        // MediaRecorder variables
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        const noise3D = createSimplexNoise();
+
+        // ============================================================================
+        // INITIALIZATION & UI BINDINGS
+        // ============================================================================
+        function setup() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+            
+            window.addEventListener('mousemove', (e) => {
+                mouse.vx = e.clientX - mouse.x;
+                mouse.vy = e.clientY - mouse.y;
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+            
+            window.addEventListener('mouseleave', () => {
+                mouse.x = -1000;
+                mouse.y = -1000;
+            });
+
+            window.addEventListener('resize', resize);
+            
+            setupUIControls();
+            resize();
+            rebuildGeometry();
+            
+            requestAnimationFrame(animate);
+        }
+
+        function setupUIControls() {
+            const panel = document.getElementById('control-panel');
+            const toggleBtn = document.getElementById('toggle-btn');
+            
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('collapsed');
+            });
+
+            const bindInput = (id, eventType, getter, updateLabel = null) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener(eventType, () => {
+                    getter(el);
+                    if(updateLabel) updateLabel();
+                    rebuildGeometry();
+                });
+            };
+
+            bindInput('inp-text', 'input', el => TYPO_CONFIG.text = el.value);
+            
+            bindInput('inp-fontsize', 'input', el => {
+                TYPO_CONFIG.fontSizeVW = parseFloat(el.value);
+            }, () => document.getElementById('val-fontsize').innerText = TYPO_CONFIG.fontSizeVW);
+
+            bindInput('inp-weight', 'change', el => TYPO_CONFIG.fontWeight = el.value);
+
+            bindInput('inp-spacing', 'input', el => {
+                TYPO_CONFIG.letterSpacing = parseInt(el.value);
+            }, () => document.getElementById('val-spacing').innerText = TYPO_CONFIG.letterSpacing);
+
+            bindInput('inp-lineheight', 'input', el => {
+                TYPO_CONFIG.lineHeight = parseFloat(el.value);
+            }, () => document.getElementById('val-lineheight').innerText = TYPO_CONFIG.lineHeight);
+
+            bindInput('inp-align', 'change', el => TYPO_CONFIG.align = el.value);
+
+            bindInput('inp-uppercase', 'change', el => {
+                TYPO_CONFIG.uppercase = el.checked;
+                if(el.checked) {
+                    TYPO_CONFIG.lowercase = false;
+                    document.getElementById('inp-lowercase').checked = false;
+                }
+            });
+
+            bindInput('inp-lowercase', 'change', el => {
+                TYPO_CONFIG.lowercase = el.checked;
+                if(el.checked) {
+                    TYPO_CONFIG.uppercase = false;
+                    document.getElementById('inp-uppercase').checked = false;
+                }
+            });
+
+            bindInput('inp-autofit', 'change', el => TYPO_CONFIG.autoFit = el.checked);
+
+            bindInput('inp-thickness', 'input', el => {
+                TYPO_CONFIG.outlineThickness = parseFloat(el.value);
+            }, () => document.getElementById('val-thickness').innerText = TYPO_CONFIG.outlineThickness);
+
+            bindInput('inp-offset', 'input', el => {
+                TYPO_CONFIG.outlineOffset = parseInt(el.value);
+            }, () => document.getElementById('val-offset').innerText = TYPO_CONFIG.outlineOffset);
+
+            // Organic Distortion Master Slider
+            document.getElementById('inp-distortion').addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                CONFIG.ORGANIC_DISTORTION = val;
+                document.getElementById('val-distortion').innerText = val.toFixed(1);
+            });
+
+            // Separate Noise Scale Slider
+            document.getElementById('inp-noisescale').addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                CONFIG.NOISE_SCALE = val;
+                document.getElementById('val-noisescale').innerText = val.toFixed(4);
+            });
+
+            // Separate Flow Strength Slider
+            document.getElementById('inp-flowstrength').addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                CONFIG.FLOW_STRENGTH = val;
+                document.getElementById('val-flowstrength').innerText = val.toFixed(2);
+            });
+
+            // Random Noise & Flow Button
+            document.getElementById('btn-randomize-noise').addEventListener('click', randomizeNoiseAndFlow);
+
+            // Color Pickers
+            document.getElementById('inp-bg-color').addEventListener('input', (e) => {
+                COLOR_CONFIG.bgColor = e.target.value;
+                document.documentElement.style.setProperty('--bg-color', e.target.value);
+            });
+
+            document.getElementById('inp-line-color').addEventListener('input', (e) => {
+                COLOR_CONFIG.lineColor = e.target.value;
+            });
+
+            document.getElementById('inp-sub-color').addEventListener('input', (e) => {
+                COLOR_CONFIG.subColor = e.target.value;
+            });
+
+            // Opacity Sliders
+            document.getElementById('inp-alpha').addEventListener('input', (e) => {
+                CONFIG.LINE_ALPHA = parseFloat(e.target.value);
+                document.getElementById('val-alpha').innerText = CONFIG.LINE_ALPHA;
+            });
+
+            document.getElementById('inp-glow').addEventListener('input', (e) => {
+                CONFIG.GLOW_ALPHA = parseFloat(e.target.value);
+                document.getElementById('val-glow').innerText = CONFIG.GLOW_ALPHA;
+            });
+
+            // Export PNG
+            document.getElementById('btn-export-png').addEventListener('click', () => {
+                let link = document.createElement('a');
+                link.download = 'flowtype-snapshot.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+
+            // Recording Controls
+            const recBtn = document.getElementById('btn-toggle-rec');
+            const exportMp4Btn = document.getElementById('btn-export-mp4');
+
+            recBtn.addEventListener('click', () => {
+                if (!isRecording) {
+                    startRecording();
+                    recBtn.innerText = "Stop Recording";
+                    recBtn.classList.add('recording');
+                    exportMp4Btn.disabled = true;
+                } else {
+                    stopRecording();
+                    recBtn.innerText = "Start Recording";
+                    recBtn.classList.remove('recording');
+                }
+            });
+
+            exportMp4Btn.addEventListener('click', () => {
+                if (recordedChunks.length === 0) return;
+                let blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                let url = URL.createObjectURL(blob);
+                let link = document.createElement('a');
+                link.style.display = 'none';
+                link.href = url;
+                link.download = 'flowtype-animation.mp4';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+            });
+        }
+
+        function randomizeNoiseAndFlow() {
+            const randomNoiseScale = parseFloat((Math.random() * 0.0045 + 0.0005).toFixed(4));
+            CONFIG.NOISE_SCALE = randomNoiseScale;
+            document.getElementById('inp-noisescale').value = randomNoiseScale;
+            document.getElementById('val-noisescale').innerText = randomNoiseScale.toFixed(4);
+
+            const randomFlowStrength = parseFloat((Math.random() * 1.9 + 0.1).toFixed(2));
+            CONFIG.FLOW_STRENGTH = randomFlowStrength;
+            document.getElementById('inp-flowstrength').value = randomFlowStrength;
+            document.getElementById('val-flowstrength').innerText = randomFlowStrength.toFixed(2);
+        }
+
+        function startRecording() {
+            recordedChunks = [];
+            let stream = canvas.captureStream(60);
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4;codecs=vp9' });
+            } catch (e) {
+                try {
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+                } catch (err) {
+                    alert('Video recording is not supported in your browser.');
+                    return;
+                }
+            }
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                document.getElementById('btn-export-mp4').disabled = false;
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+        }
+
+        function rebuildGeometry() {
+            const rawContours = createTextGeometry();
+            const sampledPoints = sampleContours(rawContours);
+            points = initializePoints(sampledPoints);
+            buildNeighbors();
+        }
+
+        // ============================================================================
+        // GEOMETRY GENERATION
+        // ============================================================================
+        function createTextGeometry() {
+            const offCanvas = document.createElement('canvas');
+            const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+            
+            offCanvas.width = width;
+            offCanvas.height = height;
+            
+            offCtx.fillStyle = 'black';
+            offCtx.fillRect(0, 0, width, height);
+            
+            let processedText = TYPO_CONFIG.text;
+            if (TYPO_CONFIG.uppercase) processedText = processedText.toUpperCase();
+            if (TYPO_CONFIG.lowercase) processedText = processedText.toLowerCase();
+
+            let fontSizePx = (TYPO_CONFIG.fontSizeVW / 100) * Math.min(width, height);
+            if (!TYPO_CONFIG.autoFit) {
+                fontSizePx = Math.min(width, height) * 0.15;
+            }
+
+            offCtx.font = `${TYPO_CONFIG.fontWeight} ${fontSizePx}px sans-serif`;
+            offCtx.fillStyle = 'white';
+            offCtx.textAlign = TYPO_CONFIG.align;
+            offCtx.textBaseline = 'middle';
+
+            let lines = processedText.split('\n');
+            let totalBlockHeight = lines.length * fontSizePx * TYPO_CONFIG.lineHeight;
+            let startY = (height / 2) - (totalBlockHeight / 2) + (fontSizePx * TYPO_CONFIG.lineHeight / 2);
+            
+            let posX = width / 2;
+            if (TYPO_CONFIG.align === 'left') posX = width * 0.15;
+            if (TYPO_CONFIG.align === 'right') posX = width * 0.85;
+
+            offCtx.save();
+            offCtx.translate(posX, startY);
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                let currentYOffset = i * fontSizePx * TYPO_CONFIG.lineHeight;
+                
+                if (TYPO_CONFIG.letterSpacing !== 0) {
+                    let totalWidth = offCtx.measureText(line).width + (line.length - 1) * TYPO_CONFIG.letterSpacing;
+                    let cursorX = 0;
+                    if (TYPO_CONFIG.align === 'center') cursorX = -totalWidth / 2;
+                    if (TYPO_CONFIG.align === 'right') cursorX = -totalWidth;
+
+                    for (let char of line) {
+                        offCtx.fillText(char, cursorX, currentYOffset);
+                        cursorX += offCtx.measureText(char).width + TYPO_CONFIG.letterSpacing;
+                    }
+                } else {
+                    offCtx.fillText(line, 0, currentYOffset);
+                }
+            }
+            offCtx.restore();
+            
+            const imgData = offCtx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            
+            let edgePixels = [];
+            
+            for (let y = 1; y < height - 1; y += 1) {
+                for (let x = 1; x < width - 1; x += 1) {
+                    const idx = (y * width + x) * 4;
+                    if (data[idx] > 128) {
+                        let isEdge = false;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                const nIdx = ((y + dy) * width + (x + dx)) * 4;
+                                if (data[nIdx] < 128) {
+                                    isEdge = true;
+                                    break;
+                                }
+                            }
+                            if (isEdge) break;
+                        }
+                        if (isEdge) {
+                            edgePixels.push({ x, y, used: false });
+                        }
+                    }
+                }
+            }
+
+            let contours = [];
+            let hash = new Map();
+            let cSize = 5;
+            for(let i=0; i<edgePixels.length; i++) {
+                let p = edgePixels[i];
+                let key = Math.floor(p.x/cSize) + ',' + Math.floor(p.y/cSize);
+                if(!hash.has(key)) hash.set(key, []);
+                hash.get(key).push(p);
+            }
+
+            let unvisited = edgePixels.length;
+            while (unvisited > 0) {
+                let startPoint = edgePixels.find(p => !p.used);
+                if (!startPoint) break;
+                
+                let currentContour = [];
+                let current = startPoint;
+                
+                while (current) {
+                    current.used = true;
+                    unvisited--;
+                    currentContour.push({ x: current.x, y: current.y });
+                    
+                    let next = null;
+                    let minDist = 25;
+                    let hx = Math.floor(current.x/cSize);
+                    let hy = Math.floor(current.y/cSize);
+                    
+                    for(let dy=-1; dy<=1; dy++){
+                        for(let dx=-1; dx<=1; dx++){
+                            let key = (hx+dx) + ',' + (hy+dy);
+                            let cell = hash.get(key);
+                            if(cell) {
+                                for(let p of cell) {
+                                    if(!p.used) {
+                                        let d2 = (p.x-current.x)**2 + (p.y-current.y)**2;
+                                        if(d2 < minDist) {
+                                            minDist = d2;
+                                            next = p;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    current = next;
+                }
+                if (currentContour.length > 15) {
+                    contours.push(currentContour);
+                }
+            }
+            
+            contours = contours.map(contour => {
+                let smoothed = [];
+                let windowSize = 3;
+                for (let i = 0; i < contour.length; i++) {
+                    let sumX = 0, sumY = 0;
+                    for (let j = -windowSize; j <= windowSize; j++) {
+                        let idx = (i + j + contour.length) % contour.length;
+                        sumX += contour[idx].x;
+                        sumY += contour[idx].y;
+                    }
+                    smoothed.push({
+                        x: sumX / (windowSize * 2 + 1),
+                        y: sumY / (windowSize * 2 + 1)
+                    });
+                }
+                return smoothed;
+            });
+
+            return contours;
+        }
+
+        function sampleContours(contours) {
+            let contourData = contours.map(points => {
+                let length = 0;
+                let segments = [];
+                for (let i = 0; i < points.length; i++) {
+                    let p1 = points[i];
+                    let p2 = points[(i + 1) % points.length];
+                    let dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    segments.push({ p1, p2, dist, cumulative: length });
+                    length += dist;
+                }
+                return { points, segments, totalLength: length };
+            });
+
+            let globalLength = contourData.reduce((sum, c) => sum + c.totalLength, 0);
+            if(globalLength === 0) return [];
+            let finalSamples = [];
+
+            contourData.forEach((cData, curveID) => {
+                let ptsCount = Math.max(10, Math.floor((cData.totalLength / globalLength) * CONFIG.POINT_COUNT));
+                let step = cData.totalLength / ptsCount;
+                
+                for (let i = 0; i < ptsCount; i++) {
+                    let targetDist = i * step;
+                    let segment = cData.segments.find((seg, idx) => {
+                        let nextDist = cData.segments[idx + 1] ? cData.segments[idx + 1].cumulative : cData.totalLength;
+                        return targetDist >= seg.cumulative && targetDist <= nextDist;
+                    }) || cData.segments[cData.segments.length - 1];
+                    
+                    let localT = segment.dist === 0 ? 0 : (targetDist - segment.cumulative) / segment.dist;
+                    let nx = segment.p1.x + (segment.p2.x - segment.p1.x) * localT;
+                    let ny = segment.p1.y + (segment.p2.y - segment.p1.y) * localT;
+                    
+                    let tx = segment.p2.x - segment.p1.x;
+                    let ty = segment.p2.y - segment.p1.y;
+                    let mag = Math.hypot(tx, ty);
+                    let normalX = mag > 0 ? -ty / mag : 0;
+                    let normalY = mag > 0 ? tx / mag : 0;
+
+                    nx += normalX * TYPO_CONFIG.outlineOffset;
+                    ny += normalY * TYPO_CONFIG.outlineOffset;
+                    
+                    finalSamples.push({
+                        originalX: nx,
+                        originalY: ny,
+                        tangentX: mag > 0 ? tx / mag : 0,
+                        tangentY: mag > 0 ? ty / mag : 0,
+                        normalX: normalX,
+                        normalY: normalY,
+                        curveID: curveID,
+                        contourIndex: i / ptsCount,
+                        isSub: (curveID % 2 === 0 && i % 2 === 0)
+                    });
+                }
+            });
+
+            return finalSamples;
+        }
+
+        function initializePoints(samples) {
+            return samples.map(s => ({
+                originalX: s.originalX,
+                originalY: s.originalY,
+                currentX: s.originalX,
+                currentY: s.originalY,
+                vx: 0,
+                vy: 0,
+                tangentX: s.tangentX,
+                tangentY: s.tangentY,
+                normalX: s.normalX,
+                normalY: s.normalY,
+                curveID: s.curveID,
+                noiseValue: 0,
+                noiseAngle: 0,
+                phase: Math.random() * Math.PI * 2,
+                neighborIndices: [],
+                isSub: s.isSub
+            }));
+        }
+
+        // ============================================================================
+        // NEIGHBOR NETWORK (SPATIAL HASHING)
+        // ============================================================================
+        function buildNeighbors() {
+            spatialGrid.clear();
+            
+            for (let i = 0; i < points.length; i++) {
+                let key = Math.floor(points[i].originalX / cellSize) + ',' + Math.floor(points[i].originalY / cellSize);
+                if (!spatialGrid.has(key)) spatialGrid.set(key, []);
+                spatialGrid.get(key).push({ idx: i, point: points[i] });
+            }
+
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                let hx = Math.floor(p.originalX / cellSize);
+                let hy = Math.floor(p.originalY / cellSize);
+                
+                let candidates = [];
+                for (let dy = -2; dy <= 2; dy++) {
+                    for (let dx = -2; dx <= 2; dx++) {
+                        let key = (hx + dx) + ',' + (hy + dy);
+                        let cell = spatialGrid.get(key);
+                        if (cell) candidates.push(...cell);
+                    }
+                }
+
+                candidates.sort((a, b) => {
+                    let da = (a.point.originalX - p.originalX)**2 + (a.point.originalY - p.originalY)**2;
+                    let db = (b.point.originalX - p.originalX)**2 + (b.point.originalY - p.originalY)**2;
+                    return da - db;
+                });
+                
+                let selected = [];
+                let count = 0;
+                for(let j = 1; j < candidates.length; j++) {
+                    if(count >= CONFIG.NEIGHBOR_COUNT) break;
+                    selected.push(candidates[j].idx);
+                    count++;
+                }
+                p.neighborIndices = selected;
+            }
+        }
+
+        // ============================================================================
+        // PHYSICS & NOISE FIELDS
+        // ============================================================================
+        function fbm(x, y, z) {
+            let value = 0;
+            let amplitude = 1;
+            let frequency = 1;
+            let max = 0;
+            
+            for (let i = 0; i < CONFIG.FBM_OCTAVES; i++) {
+                value += noise3D(x * frequency, y * frequency, z) * amplitude;
+                max += amplitude;
+                amplitude *= 0.5;
+                frequency *= 2.0;
+            }
+            return value / max;
+        }
+
+        function updateNoise() {
+            time += CONFIG.NOISE_SPEED * CONFIG.ANIMATION_SPEED;
+            let z = time;
+            
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                let nx = p.originalX * CONFIG.NOISE_SCALE;
+                let ny = p.originalY * CONFIG.NOISE_SCALE;
+                
+                let n1 = fbm(nx, ny, z);
+                let n2 = fbm(nx + 100, ny + 100, z);
+                
+                p.noiseAngle = n1 * Math.PI * 4;
+                p.noiseValue = n2;
+            }
+        }
+
+        function updatePhysics() {
+            // Normalized distortion factor from 0 to 1
+            const dFactor = CONFIG.ORGANIC_DISTORTION / 10.0;
+            
+            // Map Organic Distortion smoothly across parameters:
+            // 1. Noise Amplitude (scales noise magnitude)
+            // 2. Curl Field Influence (scales curl flow vectors)
+            // 3. Line Curvature (scales curve tension/bending)
+            // 4. Local Rotation (applies a rotational force orthogonal to normal/tangent)
+            // 5. Positional Displacement (scales spring stretch and displacement)
+            
+            const noiseAmp = dFactor * 1.5;
+            const curlInfluence = dFactor * CONFIG.FLOW_STRENGTH;
+            const lineCurvatureFactor = 0.2 + dFactor * 0.8;
+            const rotationFactor = dFactor * 0.4;
+            const displacementFactor = dFactor * 1.2;
+
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                
+                // • noise amplitude & curl field influence
+                let fx = Math.cos(p.noiseAngle) * p.noiseValue * curlInfluence * noiseAmp;
+                let fy = Math.sin(p.noiseAngle) * p.noiseValue * curlInfluence * noiseAmp;
+                
+                fx += p.tangentX * CONFIG.DRIFT * dFactor;
+                fy += p.tangentY * CONFIG.DRIFT * dFactor;
+
+                // • local rotation effect (orthogonal push based on normal)
+                if (rotationFactor > 0) {
+                    let rotAngle = p.noiseValue * Math.PI * rotationFactor;
+                    let rx = p.normalX * Math.cos(rotAngle) - p.normalY * Math.sin(rotAngle);
+                    let ry = p.normalX * Math.sin(rotAngle) + p.normalY * Math.cos(rotAngle);
+                    fx += rx * rotationFactor * 2.0;
+                    fy += ry * rotationFactor * 2.0;
+                }
+
+                let dx = mouse.x - p.currentX;
+                let dy = mouse.y - p.currentY;
+                let dist = Math.hypot(dx, dy);
+                
+                if (dist < CONFIG.MOUSE_RADIUS) {
+                    let falloff = 1 - (dist / CONFIG.MOUSE_RADIUS);
+                    falloff = falloff * falloff;
+                    
+                    let tx = -dy / (dist || 1);
+                    let ty = dx / (dist || 1);
+                    let rx = -dx / (dist || 1);
+                    let ry = -dy / (dist || 1);
+                    
+                    fx += (tx * 1.5 + rx * 0.5) * CONFIG.MOUSE_FORCE * falloff * 100;
+                    fy += (ty * 1.5 + ry * 0.5) * CONFIG.MOUSE_FORCE * falloff * 100;
+                }
+                
+                // • positional displacement via spring force modulated by distortion
+                let currentSpringForce = CONFIG.SPRING_FORCE * (0.1 + displacementFactor * 0.9);
+                let sx = (p.originalX - p.currentX) * currentSpringForce;
+                let sy = (p.originalY - p.currentY) * currentSpringForce;
+                
+                p.vx += fx + sx;
+                p.vy += fy + sy;
+                
+                p.vx *= CONFIG.DAMPING;
+                p.vy *= CONFIG.DAMPING;
+                
+                p.currentX += p.vx;
+                p.currentY += p.vy;
+            }
+        }
+
+        // ============================================================================
+        // RENDERING
+        // ============================================================================
+        function hexToRgb(hex) {
+            let bigint = parseInt(hex.replace('#',''), 16);
+            let r = (bigint >> 16) & 255;
+            let g = (bigint >> 8) & 255;
+            let b = bigint & 255;
+            return `${r}, ${g}, ${b}`;
+        }
+
+        function drawNetwork(alpha, lineWidth, useSubColor = false) {
+            if(points.length === 0) return;
+            
+            let chosenColorHex = useSubColor ? COLOR_CONFIG.subColor : COLOR_CONFIG.lineColor;
+            let rgbStr = hexToRgb(chosenColorHex);
+
+            ctx.lineWidth = lineWidth * CONFIG.PIXEL_RATIO * TYPO_CONFIG.outlineThickness;
+            ctx.strokeStyle = `rgba(${rgbStr}, ${alpha})`;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            
+            // • line curvature factor driven by distortion
+            const dFactor = CONFIG.ORGANIC_DISTORTION / 10.0;
+            let dynamicTension = CONFIG.CURVE_TENSION * (0.5 + dFactor * 0.5);
+
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                if (useSubColor !== p.isSub) continue;
+
+                for (let j = 0; j < p.neighborIndices.length; j++) {
+                    let nIdx = p.neighborIndices[j];
+                    if (nIdx > i) {
+                        let neighbor = points[nIdx];
+                        let midX = (p.currentX + neighbor.currentX) / 2;
+                        let midY = (p.currentY + neighbor.currentY) / 2;
+                        
+                        let cpX = midX + (p.vx + neighbor.vx) * dynamicTension;
+                        let cpY = midY + (p.vy + neighbor.vy) * dynamicTension;
+
+                        ctx.moveTo(p.currentX, p.currentY);
+                        ctx.quadraticCurveTo(cpX, cpY, neighbor.currentX, neighbor.currentY);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+
+        function drawPasses() {
+            drawNetwork(CONFIG.GLOW_ALPHA * 0.5, CONFIG.LINE_WIDTH * 2, false);
+            drawNetwork(CONFIG.GLOW_ALPHA * 0.4, CONFIG.LINE_WIDTH * 2, true);
+
+            drawNetwork(CONFIG.LINE_ALPHA, CONFIG.LINE_WIDTH, false);
+            drawNetwork(CONFIG.LINE_ALPHA * 0.8, CONFIG.LINE_WIDTH, true);
+
+            drawNetwork(CONFIG.GLOW_ALPHA * 2, CONFIG.LINE_WIDTH * 0.5, false);
+        }
+
+        function animate() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = COLOR_CONFIG.bgColor;
+            ctx.fillRect(0, 0, width, height);
+            
+            updateNoise();
+            updatePhysics();
+            
+            ctx.globalCompositeOperation = 'lighter';
+            drawPasses();
+            
+            requestAnimationFrame(animate);
+        }
+
+        // ============================================================================
+        // UTILITIES
+        // ============================================================================
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            
+            canvas.width = width * CONFIG.PIXEL_RATIO;
+            canvas.height = height * CONFIG.PIXEL_RATIO;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            ctx.scale(CONFIG.PIXEL_RATIO, CONFIG.PIXEL_RATIO);
+            
+            if(points.length > 0) {
+                rebuildGeometry();
+            }
+        }
+
+        function createSimplexNoise() {
+            const F3 = 1.0 / 3.0;
+            const G3 = 1.0 / 6.0;
+            const p = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) p[i] = Math.floor(Math.random() * 256);
+            const perm = new Uint8Array(512);
+            const permMod12 = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                perm[i] = p[i & 255];
+                permMod12[i] = (perm[i] % 12);
+            }
+
+            return function(xin, yin, zin) {
+                let n0, n1, n2, n3;
+                const s = (xin + yin + zin) * F3;
+                const i = Math.floor(xin + s);
+                const j = Math.floor(yin + s);
+                const k = Math.floor(zin + s);
+                const t = (i + j + k) * G3;
+                const X0 = i - t;
+                const Y0 = j - t;
+                const Z0 = k - t;
+                const x0 = xin - X0;
+                const y0 = yin - Y0;
+                const z0 = zin - Z0;
+                
+                let i1, j1, k1, i2, j2, k2;
+                if(x0>=y0) {
+                    if(y0>=z0) { i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; }
+                    else if(x0>=z0) { i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; }
+                    else { i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; }
+                } else {
+                    if(y0<z0) { i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; }
+                    else if(x0<z0) { i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; }
+                    else { i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; }
+                }
+                
+                let x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+                let x2 = x0 - i2 + 2.0*G3, y2 = y0 - j2 + 2.0*G3, z2 = z0 - k2 + 2.0*G3;
+                let x3 = x0 - 1.0 + 3.0*G3, y3 = y0 - 1.0 + 3.0*G3, z3 = z0 - 1.0 + 3.0*G3;
+                
+                let ii = i & 255, jj = j & 255, kk = k & 255;
+                
+                let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+                if(t0<0) n0 = 0.0;
+                else {
+                    let gi = permMod12[ii+perm[jj+perm[kk]]] * 3;
+                    t0 *= t0;
+                    n0 = t0 * t0 * (grad3[gi]*x0 + grad3[gi+1]*y0 + grad3[gi+2]*z0);
+                }
+                
+                let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+                if(t1<0) n1 = 0.0;
+                else {
+                    let gi = permMod12[ii+i1+perm[jj+j1+perm[kk+k1]]] * 3;
+                    t1 *= t1;
+                    n1 = t1 * t1 * (grad3[gi]*x1 + grad3[gi+1]*y1 + grad3[gi+2]*z1);
+                }
+                
+                let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+                if(t2<0) n2 = 0.0;
+                else {
+                    let gi = permMod12[ii+i2+perm[jj+j2+perm[kk+k2]]] * 3;
+                    t2 *= t2;
+                    n2 = t2 * t2 * (grad3[gi]*x2 + grad3[gi+1]*y2 + grad3[gi+2]*z2);
+                }
+                
+                let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+                if(t3<0) n3 = 0.0;
+                else {
+                    let gi = permMod12[ii+1+perm[jj+1+perm[kk+1]]] * 3;
+                    t3 *= t3;
+                    n3 = t3 * t3 * (grad3[gi]*x3 + grad3[gi+1]*y3 + grad3[gi+2]*z3);
+                }
+                
+                return 32.0*(n0 + n1 + n2 + n3);
+            };
+        }
+
+        const grad3 = new Float32Array([
+            1,1,0,-1,1,0,1,-1,0,-1,-1,0,
+            1,0,1,-1,0,1,1,0,-1,-1,0,-1,
+            0,1,1,0,-1,1,0,1,-1,0,-1,-1
+        ]);
+
+        window.onload = setup;
+    </script>
+</body>
+</html>
