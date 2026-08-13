@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Distort Workbench</title>
+    <style>
+      :root {
+    --bg-color: #f4f5f8;
+    --panel-bg: #ffffff;
+    --panel-border: #e1e4ed;
+    --accent-cyan: #00a89e; /* Türkis */
+    --accent-magenta: #ff0055;
+    --text-main: #181a20;
+    --text-muted: #717786;
+    --overlay-active: #00a89e; /* Türkis */
+    --overlay-inactive: rgba(0, 0, 0, 0.25);
+}
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER UI */
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-badge {
+    background: var(--accent-cyan);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 800;
+}
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn {
+    background-color: #eef1f6;
+    color: var(--text-main);
+    border: 1px solid var(--panel-border);
+    padding: 0 16px; /* Innenabstand oben/unten wird durch height geregelt */
+    height: 36px;    /* Erzwingt eine exakt gleiche Höhe für alle Buttons */
+    line-height: 1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn:hover {
+    background-color: #e2e7f0;
+    border-color: #cbd2e1;
+}
+
+.btn-primary {
+    background-color: var(--accent-cyan);
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background-color: #008a82; /* Dunkleres Türkis für Hover */
+    box-shadow: 0 0 12px rgba(0, 168, 158, 0.3);
+}
+        .btn-danger {
+            background-color: transparent;
+            color: #ff5555;
+            border-color: rgba(255, 85, 85, 0.3);
+        }
+
+        .btn-danger:hover {
+            background-color: rgba(255, 85, 85, 0.1);
+            border-color: #ff5555;
+        }
+
+        file-input {
+            display: none;
+        }
+
+        /* WORKSPACE CANVAS */
+        main {
+    		flex: 1;
+    		position: relative;
+    		background-color: var(--bg-color);
+    		background-image: 
+        		radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 0);
+    		background-size: 24px 24px;
+    		display: flex;
+    		justify-content: center;
+   		 align-items: center;
+    		overflow: hidden;
+    		cursor: default;
+	}
+
+        #canvas-svg {
+            width: 100%;
+            height: 100%;
+            max-width: 100%; /* Begrenzung aufgehoben, nutzt vollen Bildschirm */
+            max-height: 800px;
+        }
+
+        /* SVG PATH STYLES */
+        .deformable-path {
+    		cursor: pointer;
+    		transition: opacity 0.15s ease;
+    		/* Festes 'fill' entfernt, damit Originalfarben der SVG erhalten bleiben */
+	}
+
+	.deformable-path:hover {
+    		opacity: 0.85; /* Leichtes Transparenz-Feedback statt Farbwechsel */
+	}
+
+	.deformable-path.selected {
+    		opacity: 1;
+	}
+
+        /* OVERLAY GRAPHICS */
+        .overlay-selection-bbox {
+            fill: none;
+            stroke: var(--accent-cyan);
+            stroke-width: 1.5px;
+            stroke-dasharray: 4 4;
+            pointer-events: none;
+        }
+
+        .zone-ellipse {
+    		fill: rgba(0, 168, 158, 0.04);
+    		stroke: var(--overlay-inactive);
+    		stroke-width: 1px;
+    		stroke-dasharray: 3 3;
+    		cursor: pointer;
+    		transition: stroke 0.15s ease, fill 0.15s ease;
+	}
+
+	.zone-ellipse.active {
+    		stroke: var(--accent-cyan);
+    		stroke-width: 1.5px;
+    		stroke-dasharray: none;
+    		fill: rgba(0, 168, 158, 0.08);
+	}
+
+	.zone-ellipse-outer {
+    		fill: none;
+    		stroke: rgba(0, 168, 158, 0.2);
+    		stroke-width: 1px;
+    		pointer-events: none;
+	}
+        .handle {
+            cursor: pointer;
+    		transition: fill 0.15s ease; /* 'transform' entfernt -> kein Lag/Flicker beim Draggen */
+    		transform-box: fill-box;
+    		transform-origin: center;
+	}
+
+        .handle-center {
+            fill: #ffffff;
+            stroke: var(--accent-cyan);
+            stroke-width: 2px;
+        }
+
+        .handle-center:hover, .handle-center.active {
+            fill: var(--accent-cyan);
+            transform: scale(1.3);
+        }
+
+        .handle-radius {
+            fill: var(--panel-bg);
+            stroke: var(--accent-cyan);
+            stroke-width: 2px;
+        }
+
+        .handle-radius:hover {
+            fill: var(--accent-cyan);
+            transform: scale(1.3);
+        }
+
+        .vector-line {
+            stroke: var(--accent-cyan);
+            stroke-width: 1.5px;
+            pointer-events: none;
+        }
+
+        .vector-arrow-head {
+            fill: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .delete-btn-group {
+            cursor: pointer;
+        }
+
+        .delete-btn-bg {
+    		fill: #ffffff;
+    		stroke: rgba(255, 85, 85, 0.5);
+    		stroke-width: 1px;
+        }
+
+        .delete-btn-group:hover .delete-btn-bg {
+            fill: #ff5555;
+            stroke: #ff5555;
+        }
+
+        .delete-btn-text {
+            fill: #ff5555;
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .delete-btn-group:hover .delete-btn-text {
+            fill: #ffffff;
+        }
+
+        /* BOTTOM BAR / STATUS */
+        footer {
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+            padding: 8px 24px;
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-info span {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .hint {
+    		font-style: italic;
+    		display: flex;
+    		align-items: center;
+    		gap: 8px;
+	}
+
+	/* Styling für das ? Hinweis-Icon und den Text */
+	.upload-note {
+    		display: inline-flex;
+    		align-items: center;
+    		gap: 5px;
+    		font-style: normal;
+    		font-weight: 600;
+    		color: var(--text-main);
+		margin-right: 430px; /* Schafft mehr Abstand nach rechts zum restlichen Text */
+	}
+
+	.help-icon {
+    		display: inline-flex;
+    		align-items: center;
+    		justify-content: center;
+    		width: 16px;
+    		height: 16px;
+    		border-radius: 50%;
+    		background-color: var(--accent-cyan);
+    		color: #ffffff;
+    		font-size: 10px;
+    		font-weight: bold;
+    		font-style: normal;
+	}
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            Typography Distort <span class="logo-badge">WORKBENCH</span>
+        </div>
+        <div class="controls">
+            <label class="btn">
+                <span>📁 Load SVG</span>
+                <input type="file" id="svg-file-input" accept=".svg" style="display:none;">
+            </label>
+		<button class="btn btn-primary" id="btn-export">
+    			<span>↓ Export SVG</span>
+		</button>
+		<button class="btn btn-primary" id="btn-record-webm">
+    			<span>🔴 Record WebM</span>
+		</button>
+            <button class="btn btn-primary" id="btn-add-zone">
+                <span>+ Deformation Zone</span>
+            </button>
+            <button class="btn btn-danger" id="btn-reset">
+                <span>Reset</span>
+            </button>
+        </div>
+    </header>
+
+    <main id="workspace">
+        <svg id="canvas-svg" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid meet">
+            <defs></defs>
+            <!-- CONTENT LAYER -->
+            <g id="svg-content-layer"></g>
+            <!-- INTERACTIVE OVERLAY LAYER -->
+            <g id="svg-overlay-layer"></g>
+        </svg>
+    </main>
+
+    <footer>
+    <div class="status-info" id="status-bar">
+        Paths: <span id="stat-paths">0</span> | Zones: <span id="stat-zones">0</span> | Active Zone: <span id="stat-active-zone">Keine</span>
+    </div>
+    <div class="hint">
+        <span class="upload-note"><span class="help-icon">?</span> Only SVGs with outlines can be uploaded</span> | Click on a letter = select | Drag in center zones = move | Drag on the ring = radius | Drag the arrow = direction & strength
+    </div>
+</footer>
+
+    <script>
+        /**
+         * LOKALE DEFORMATIONS-ARCHITEKTUR
+         * Single-File-Implementierung ohne externe Bibliotheken.
+         */
+
+        // ==========================================
+        // 1. ZUSTAND (STATE MANAGEMENT)
+        // ==========================================
+        
+        // Cache der Originalgeometrie (wird NIE überschrieben)
+        let pathCache = []; 
+        
+        // Aktive Deformationszonen
+        let deformationZones = [];
+        
+        // Selections
+        let selectedPathId = null;
+        let activeZoneId = null;
+
+        // Interaction State
+        let isDragging = false;
+        let dragTarget = null; // { type: 'zone-center'|'zone-radius'|'zone-dir', zoneId, startPt, origZone }
+        let zoneIdCounter = 1;
+
+        // SVG DOM Element-Referenzen
+        const svgCanvas = document.getElementById('canvas-svg');
+        const contentLayer = document.getElementById('svg-content-layer');
+        const overlayLayer = document.getElementById('svg-overlay-layer');
+        const fileInput = document.getElementById('svg-file-input');
+
+        // UI-Status Referenzen
+        const statPaths = document.getElementById('stat-paths');
+        const statZones = document.getElementById('stat-zones');
+        const statActiveZone = document.getElementById('stat-active-zone');
+
+        // ==========================================
+        // 2. DEMO SVG CONTENT ("DISTORT")
+        // ==========================================
+        
+        const DEMO_SVG_PATHS = [
+                // D: geht von x = 70 bis x = 200
+    { id: 'path_D', d: "M 70,110 L 140,110 C 180,110 200,135 200,200 C 200,265 180,290 140,290 L 70,290 Z M 105,145 L 105,255 L 135,255 C 155,255 165,240 165,200 C 165,160 155,145 135,145 Z" },
+    
+    // I: startet bei x = 225 (200 + 25px Abstand) bis x = 260
+    { id: 'path_I', d: "M 225,110 L 260,110 L 260,290 L 225,290 Z" },
+    
+    // S: startet bei x = 285 (260 + 25px Abstand) bis x = 422
+    { id: 'path_S', d: "M 417,145 L 385,152 C 382,138 372,135 357,135 C 342,135 335,142 335,153 C 335,167 347,173 372,181 C 407,192 422,208 422,238 C 422,275 395,292 355,292 C 312,292 289,268 285,230 L 317,223 C 320,245 335,262 355,262 C 372,262 385,253 385,238 C 385,223 375,217 347,208 C 315,197 299,182 299,153 C 299,120 325,108 357,108 C 397,108 415,126 417,145 Z" },
+    
+    // T1: startet bei x = 447 (422 + 25px Abstand) bis x = 542
+    { id: 'path_T1', d: "M 447,110 L 542,110 L 542,140 L 509,140 L 509,290 L 475,290 L 475,140 L 447,140 Z" },
+    
+    // O: startet bei x = 567 (542 + 25px Abstand) bis x = 707
+    { id: 'path_O', d: "M 637,110 C 682,110 707,140 707,200 C 707,260 682,290 637,290 C 592,290 567,260 567,200 C 567,140 592,110 637,110 Z M 637,140 C 612,140 602,160 602,200 C 602,240 612,260 637,260 C 662,260 672,240 672,200 C 672,160 662,140 637,140 Z" },
+    
+    // R: startet bei x = 732 (707 + 25px Abstand) bis x = 852
+    { id: 'path_R', d: "M 732,110 L 802,110 C 832,110 847,125 847,155 C 847,178 835,192 815,198 L 852,290 L 815,290 L 782,203 L 767,203 L 767,290 L 732,290 Z M 767,138 L 767,177 L 797,177 C 810,177 815,170 815,157 C 815,144 810,138 797,138 Z" },
+    
+    // T2: startet bei x = 877 (852 + 25px Abstand) bis x = 972
+    { id: 'path_T2', d: "M 877,110 L 972,110 L 972,140 L 939,140 L 939,290 L 905,290 L 905,140 L 877,140 Z" }
+];
+
+        // ==========================================
+        // 3. INITIALISIERUNG & SVG PARSER
+        // ==========================================
+
+        function init() {
+            loadDemoSVG();
+            setupEventListeners();
+            console.log("[Workbench] Initialisiert. Demo-SVG 'DISTORT' geladen.");
+        }
+
+        function loadDemoSVG() {
+            contentLayer.innerHTML = '';
+            DEMO_SVG_PATHS.forEach(p => {
+    		const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    		pathEl.setAttribute('d', p.d);
+    		pathEl.setAttribute('id', p.id);
+    		pathEl.setAttribute('class', 'deformable-path');
+    		pathEl.setAttribute('fill', 'var(--text-main)'); // Standardfarbe für Demo-Text
+    		contentLayer.appendChild(pathEl);
+	});
+            
+	    // Erzeuge 1 mittige Start-Deformationszone zur Demonstration
+            deformationZones = [
+                {
+                    id: 'zone_1',
+                    x: 520,  // Mittig platziert auf der X-Achse des Wortes DISTORT
+                    y: 200,  // Mittig platziert auf der Y-Achse
+                    radiusX: 110,
+                    radiusY: 110,
+                    strength: 45,
+                    dirX: 0,
+                    dirY: -1, // Nach oben
+                    bend: 15
+                }
+            ];
+            zoneIdCounter = 2;
+            activeZoneId = 'zone_1';
+
+            	parseAndCacheGeometry();
+		fitViewBoxToContent();
+		applyDeformation();
+		renderOverlay();
+		updateUIStatus();
+        }
+function fitViewBoxToContent() {
+
+    const paths = contentLayer.querySelectorAll('path');
+
+    if (!paths.length) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    paths.forEach(path => {
+        try {
+            const bbox = path.getBBox();
+
+            minX = Math.min(minX, bbox.x);
+            minY = Math.min(minY, bbox.y);
+
+            maxX = Math.max(
+                maxX,
+                bbox.x + bbox.width
+            );
+
+            maxY = Math.max(
+                maxY,
+                bbox.y + bbox.height
+            );
+
+        } catch (error) {
+            console.warn(
+                '[ViewBox] Bounding Box konnte nicht ermittelt werden.',
+                error
+            );
+        }
+    });
+
+    if (
+        !isFinite(minX) ||
+        !isFinite(minY) ||
+        !isFinite(maxX) ||
+        !isFinite(maxY)
+    ) {
+        return;
+    }
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    // Großzügiger Arbeitsrand
+    	const paddingX = Math.max(380, contentWidth * 0.40); 
+	const paddingY = Math.max(220, contentHeight * 0.35); 
+
+    const viewX = minX - paddingX;
+    const viewY = minY - paddingY;
+
+    const viewWidth =
+        contentWidth + paddingX * 2;
+
+    const viewHeight =
+        contentHeight + paddingY * 2;
+
+    svgCanvas.setAttribute(
+        'viewBox',
+        `${viewX} ${viewY} ${viewWidth} ${viewHeight}`
+    );
+
+    console.log(
+        `[ViewBox] Automatisch angepasst: ${viewX.toFixed(1)} ${viewY.toFixed(1)} ${viewWidth.toFixed(1)} ${viewHeight.toFixed(1)}`
+    );
+}
+
+        /**
+         * Zerlegt die Pfade in feine Abtastpunkte (Sampling)
+         * und speichert die UNVERÄNDERTE Originalgeometrie.
+         */
+        function parseAndCacheGeometry() {
+            pathCache = [];
+            const pathElements = contentLayer.querySelectorAll('path');
+
+            pathElements.forEach((pathEl, idx) => {
+                const pathId = pathEl.getAttribute('id') || `path_${idx + 1}`;
+                pathEl.setAttribute('data-path-id', pathId);
+
+                const rawD = pathEl.getAttribute('d');
+                if (!rawD) return;
+
+                // Subpaths durch 'M' / 'm' trennen (wichtig für Buchstaben mit Löchern wie D, O, R)
+                const subpathStrings = splitDIntoSubpaths(rawD);
+                const subpaths = [];
+
+                subpathStrings.forEach(dStr => {
+                    const tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    tempPath.setAttribute('d', dStr);
+                    svgCanvas.appendChild(tempPath);
+
+                    const totalLen = tempPath.getTotalLength();
+                    if (totalLen > 0) {
+                        // Abtastrate: ca. 2.0 Pixel für butterweiche Verformungen
+                        const step = 2.0;
+                        const numSamples = Math.max(16, Math.ceil(totalLen / step));
+                        const points = [];
+
+                        for (let i = 0; i <= numSamples; i++) {
+                            const t = (i / numSamples) * totalLen;
+                            const pt = tempPath.getPointAtLength(t);
+                            points.push({
+                                x: pt.x,
+                                y: pt.y,
+                                origX: pt.x,
+                                origY: pt.y
+                            });
+                        }
+
+                        subpaths.push({
+                            isClosed: /z/i.test(dStr),
+                            points: points
+                        });
+                    }
+                    svgCanvas.removeChild(tempPath);
+                });
+
+                const bbox = pathEl.getBBox();
+
+                pathCache.push({
+                    id: pathId,
+                    element: pathEl,
+                    bbox: { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height },
+                    subpaths: subpaths
+                });
+            });
+
+            console.log(`[GeometryCache] ${pathCache.length} Pfade erfolgreich analysiert und im Speicher isoliert.`);
+        }
+
+       function splitDIntoSubpaths(d) {
+   	 if (!d) return [];
+
+   	 const matches = d.match(
+        /(?:M|m)[^Mm]*/g
+   	 );
+
+   	 return matches || [d];
+}
+
+        // ==========================================
+        // 4. MATHEMATISCHER DEFORMATIONSKERN
+        // ==========================================
+
+        /**
+         * Wende alle aktiven Deformationszonen kumulativ
+         * auf die gecachte ORIGINALGEOMETRIE an.
+         */
+       function applyDeformation() {
+    if (!pathCache || pathCache.length === 0) return;
+
+    pathCache.forEach(pathObj => {
+
+        let pathD = '';
+
+        pathObj.subpaths.forEach(subpath => {
+
+            const pts = subpath.points;
+
+            if (!pts || pts.length === 0) return;
+
+            let subD = '';
+
+            for (let i = 0; i < pts.length; i++) {
+
+                const pt = pts[i];
+
+                let totalDx = 0;
+                let totalDy = 0;
+
+                // ==================================================
+                // DEFORMATIONSZONEN
+                // ==================================================
+
+                deformationZones.forEach(zone => {
+
+                    const FIELD_SCALE = 1.8;
+
+			const rx = Math.max(10, zone.radiusX * FIELD_SCALE);
+			const ry = Math.max(10, zone.radiusY * FIELD_SCALE);
+
+                    // ----------------------------------------------
+                    // Lokale Position relativ zum Zentrum
+                    // ----------------------------------------------
+
+                    const offsetX = pt.origX - zone.x;
+                    const offsetY = pt.origY - zone.y;
+
+                    const localX = offsetX / rx;
+                    const localY = offsetY / ry;
+
+                    const distance = Math.sqrt(
+                        localX * localX +
+                        localY * localY
+                    );
+
+                    // ----------------------------------------------
+                    // Außerhalb der Zone:
+                    // keinerlei Einfluss
+                    // ----------------------------------------------
+
+                    if (distance >= 1) return;
+
+                    // ==================================================
+                    // WEICHES EINFLUSSFELD
+                    // ==================================================
+
+                    const smooth =
+                        0.5 *
+                        (1 + Math.cos(Math.PI * distance));
+
+                    /*
+                     * Etwas stärkere Mitte, aber sehr weicher Übergang.
+                     *
+                     * Wichtig:
+                     * Wir benutzen KEINEN harten Übergang an der
+                     * Zonengrenze.
+                     */
+
+                    const falloff =
+                        smooth * smooth;
+
+                    // ==================================================
+                    // RICHTUNG
+                    // ==================================================
+
+                    let dirX = zone.dirX;
+                    let dirY = zone.dirY;
+
+                    const dirLength =
+                        Math.sqrt(
+                            dirX * dirX +
+                            dirY * dirY
+                        );
+
+                    if (dirLength > 0.0001) {
+                        dirX /= dirLength;
+                        dirY /= dirLength;
+                    }
+
+                    // ==================================================
+                    // QUERRICHTUNG
+                    // ==================================================
+
+                    const perpX = -dirY;
+                    const perpY = dirX;
+
+                    // ==================================================
+                    // LOKALE POSITION
+                    //
+                    // Gibt an, wo sich der Punkt relativ zur
+                    // Bewegungsrichtung befindet.
+                    // ==================================================
+
+                    const lateralPosition =
+                        localX * perpX +
+                        localY * perpY;
+
+                    // ==================================================
+                    // HAUPTDEFORMATION
+                    // ==================================================
+
+                    /*
+                     * Die Kraft nimmt zur Mitte hin zu.
+                     *
+                     * Durch die zusätzliche leichte nichtlineare
+                     * Verstärkung entsteht der organische "Loop"-Effekt,
+                     * ohne dass die Außenkante hart abgeschnitten wirkt.
+                     */
+
+                    // ==================================================
+// NATÜRLICHES KRAFTFELD
+// ==================================================
+
+const fieldStrength =
+    zone.strength *
+    falloff *
+    (0.65 + 0.35 * (1 - distance));
+
+// Position des Punktes relativ zum Kraftzentrum
+const radialX = localX;
+const radialY = localY;
+
+// Leichte Wechselwirkung zwischen
+// Kraftvektor und Position im Feld
+const fieldInteraction =
+    (1 - distance) * 0.65;
+
+const forceX = dirX;
+const forceY = dirY;
+
+totalDx +=
+    forceX *
+    fieldStrength;
+
+totalDy +=
+    forceY *
+    fieldStrength;
+
+
+// leichte organische Drehung
+const rotationalStrength =
+    fieldStrength *
+    0.12 *
+    (1 - distance);
+
+totalDx +=
+    -localY *
+    rotationalStrength;
+
+totalDy +=
+    localX *
+    rotationalStrength;
+
+                   // ==================================================
+                    // ORGANISCHE BIEGUNG
+                    // ==================================================
+
+                    /*
+                     * Die Querbewegung ist nicht mehr linear.
+                     *
+                     * Dadurch wird die Form um das Kraftzentrum herum
+                     * leicht gebogen, statt nur seitlich verschoben.
+                     */
+
+                    const bendProfile =
+                        Math.sin(
+                            Math.PI * distance
+                        );
+
+                    const bendAmount =
+    			lateralPosition *
+    			zone.bend *
+   			0.75 *
+    			falloff;
+
+                    totalDx +=
+                        perpX * bendAmount;
+
+                    totalDy +=
+                        perpY * bendAmount;
+
+                    // ==================================================
+                    // LEICHTE RADIALE KOMPONENTE
+                    // ==================================================
+
+                    /*
+                     * Diese Komponente verhindert, dass sich die
+                     * Deformation wie ein rein linearer Schub anfühlt.
+                     *
+                     * Sie erzeugt das organischere "Ziehen" um das
+                     * Zentrum herum.
+                     */
+
+                    const radialStrength =
+                        zone.strength *
+                        0.10 *
+                        falloff *
+                        (1 - distance);
+
+                    if (distance > 0.0001) {
+
+                        const radialX =
+                            localX / distance;
+
+                        const radialY =
+                            localY / distance;
+
+                        totalDx +=
+                            radialX *
+                            radialStrength;
+
+                        totalDy +=
+                            radialY *
+                            radialStrength;
+                    }
+
+                });
+
+
+                // ==================================================
+                // NEUE POSITION
+                // ==================================================
+
+                /*
+                 * GANZ WICHTIG:
+                 *
+                 * Immer von origX / origY ausgehen.
+                 *
+                 * Dadurch bleibt die Originalgeometrie unangetastet
+                 * und wiederholtes Ziehen erzeugt keine kumulativen
+                 * Fehler.
+                 */
+
+                pt.x =
+                    pt.origX +
+                    totalDx;
+
+                pt.y =
+                    pt.origY +
+                    totalDy;
+
+
+                // ==================================================
+                // PATH STRING
+                // ==================================================
+
+                const xStr =
+                    pt.x.toFixed(2);
+
+                const yStr =
+                    pt.y.toFixed(2);
+
+                if (i === 0) {
+
+                    subD +=
+                        `M ${xStr} ${yStr}`;
+
+                } else {
+
+                    subD +=
+                        ` L ${xStr} ${yStr}`;
+                }
+            }
+
+            // Geschlossene Form schließen
+            if (subpath.isClosed) {
+                subD += ' Z';
+            }
+
+            pathD +=
+                subD + ' ';
+        });
+
+        // ==================================================
+        // DEFORMIERTE GEOMETRIE SCHREIBEN
+        // ==================================================
+
+        pathObj.element.setAttribute(
+            'd',
+            pathD.trim()
+        );
+
+    });
+}
+
+        // ==========================================
+        // 5. INTERAKTIVES OVERLAY & RENDERING
+        // ==========================================
+
+        function renderOverlay() {
+            overlayLayer.innerHTML = '';
+
+            // 1. Hervorhebung des ausgewählten Pfades (Selection Box)
+            if (selectedPathId) {
+                const selectedObj = pathCache.find(p => p.id === selectedPathId);
+                if (selectedObj) {
+                    // Verwende die aktuelle Bounding-Box des Pfades
+                    const currentBBox = selectedObj.element.getBBox();
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', currentBBox.x - 4);
+                    rect.setAttribute('y', currentBBox.y - 4);
+                    rect.setAttribute('width', currentBBox.width + 8);
+                    rect.setAttribute('height', currentBBox.height + 8);
+                    rect.setAttribute('class', 'overlay-selection-bbox');
+                    overlayLayer.appendChild(rect);
+                }
+            }
+
+            // 2. Zeichne Deformationszonen
+            deformationZones.forEach(zone => {
+                const isActive = (zone.id === activeZoneId);
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+                // Äußerer Einflussring (sehr dezent)
+                const outerEllipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                outerEllipse.setAttribute('cx', zone.x);
+                outerEllipse.setAttribute('cy', zone.y);
+                outerEllipse.setAttribute('rx', zone.radiusX * 1.15);
+                outerEllipse.setAttribute('ry', zone.radiusY * 1.15);
+                outerEllipse.setAttribute('class', 'zone-ellipse-outer');
+                g.appendChild(outerEllipse);
+
+                // Haupt-Zonen-Ellipse
+                const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                ellipse.setAttribute('cx', zone.x);
+                ellipse.setAttribute('cy', zone.y);
+                ellipse.setAttribute('rx', zone.radiusX);
+                ellipse.setAttribute('ry', zone.radiusY);
+                ellipse.setAttribute('class', `zone-ellipse ${isActive ? 'active' : ''}`);
+                ellipse.setAttribute('data-zone-id', zone.id);
+                ellipse.setAttribute('data-action', 'select-zone');
+                g.appendChild(ellipse);
+
+                // Pfeil-Vektor für Verformungsrichtung & Stärke
+                const arrowEndX = zone.x + zone.dirX * zone.strength;
+                const arrowEndY = zone.y + zone.dirY * zone.strength;
+
+                const vectorLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vectorLine.setAttribute('x1', zone.x);
+                vectorLine.setAttribute('y1', zone.y);
+                vectorLine.setAttribute('x2', arrowEndX);
+                vectorLine.setAttribute('y2', arrowEndY);
+                vectorLine.setAttribute('class', 'vector-line');
+                if (!isActive) vectorLine.setAttribute('style', 'opacity: 0.4;');
+                g.appendChild(vectorLine);
+
+                // Pfeilspitzen-Handle (Richtung & Stärke verändern)
+                const arrowHead = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                arrowHead.setAttribute('cx', arrowEndX);
+                arrowHead.setAttribute('cy', arrowEndY);
+                arrowHead.setAttribute('r', isActive ? '6' : '4');
+                arrowHead.setAttribute('class', 'vector-arrow-head handle');
+                arrowHead.setAttribute('data-zone-id', zone.id);
+                arrowHead.setAttribute('data-action', 'drag-dir');
+                g.appendChild(arrowHead);
+
+                // Zentrum-Handle (Zone verschieben)
+                const centerHandle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                centerHandle.setAttribute('cx', zone.x);
+                centerHandle.setAttribute('cy', zone.y);
+                centerHandle.setAttribute('r', isActive ? '7' : '5');
+                centerHandle.setAttribute('class', `handle handle-center ${isActive ? 'active' : ''}`);
+                centerHandle.setAttribute('data-zone-id', zone.id);
+                centerHandle.setAttribute('data-action', 'drag-center');
+                g.appendChild(centerHandle);
+
+                // Radius-Handle (Zone skalieren - am rechten Rand)
+                const radiusHandle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                radiusHandle.setAttribute('cx', zone.x + zone.radiusX);
+                radiusHandle.setAttribute('cy', zone.y);
+                radiusHandle.setAttribute('r', '5');
+                radiusHandle.setAttribute('class', 'handle handle-radius');
+                radiusHandle.setAttribute('data-zone-id', zone.id);
+                radiusHandle.setAttribute('data-action', 'drag-radius');
+                g.appendChild(radiusHandle);
+
+                // Löschen-Button (nur bei aktiver Zone anzeigen)
+                if (isActive) {
+                    const delX = zone.x + zone.radiusX * 0.707 + 12;
+                    const delY = zone.y - zone.radiusY * 0.707 - 12;
+
+                    const delGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    delGroup.setAttribute('class', 'delete-btn-group');
+                    delGroup.setAttribute('data-zone-id', zone.id);
+                    delGroup.setAttribute('data-action', 'delete-zone');
+
+                    const delBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    delBg.setAttribute('cx', delX);
+                    delBg.setAttribute('cy', delY);
+                    delBg.setAttribute('r', '9');
+                    delBg.setAttribute('class', 'delete-btn-bg');
+
+                    const delText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    delText.setAttribute('x', delX);
+                    delText.setAttribute('y', delY);
+                    delText.setAttribute('class', 'delete-btn-text');
+                    delText.textContent = '✕';
+
+                    delGroup.appendChild(delBg);
+                    delGroup.appendChild(delText);
+                    g.appendChild(delGroup);
+                }
+
+                overlayLayer.appendChild(g);
+            });
+        }
+
+        // ==========================================
+        // 6. INTERAKTIONEN & MAUS-EVENTS
+        // ==========================================
+
+        function setupEventListeners() {
+            // Mouse / Pointer Events auf dem SVG Canvas
+            svgCanvas.addEventListener('pointerdown', handlePointerDown);
+            window.addEventListener('pointermove', handlePointerMove);
+            window.addEventListener('pointerup', handlePointerUp);
+
+            // UI Buttons
+            document.getElementById('btn-add-zone').addEventListener('click', createNewZone);
+            document.getElementById('btn-reset').addEventListener('click', resetAll);
+            fileInput.addEventListener('change', handleFileUpload);
+	    document.getElementById('btn-export')
+    		.addEventListener('click', exportSVG);
+	    document.getElementById('btn-record-webm').addEventListener('click', toggleWebMRecording);
+        }
+
+function exportSVG() {
+
+    // SVG klonen, damit unser Arbeits-Overlay
+    // NICHT mit exportiert wird.
+    const exportSvg = svgCanvas.cloneNode(true);
+
+    // Overlay vollständig entfernen
+    const exportOverlay =
+        exportSvg.querySelector('#svg-overlay-layer');
+
+    if (exportOverlay) {
+        exportOverlay.remove();
+    }
+
+    // Editor-spezifische Attribute entfernen
+    exportSvg.removeAttribute('style');
+
+    // Export-Größe anhand der ViewBox bestimmen
+    const viewBox = exportSvg.getAttribute('viewBox');
+
+    if (!viewBox) {
+        exportSvg.setAttribute(
+            'viewBox',
+            '0 0 1000 400'
+        );
+    }
+
+    // XML-Namespace sicherstellen
+    exportSvg.setAttribute(
+        'xmlns',
+        'http://www.w3.org/2000/svg'
+    );
+
+    exportSvg.setAttribute(
+        'xmlns:xlink',
+        'http://www.w3.org/1999/xlink'
+    );
+
+    // ------------------------------------------
+    // EDITOR-KLASSEN ENTFERNEN
+    // ------------------------------------------
+
+    exportSvg
+        .querySelectorAll('.deformable-path')
+        .forEach(path => {
+
+            path.classList.remove('deformable-path');
+            path.classList.remove('selected');
+
+            // Sicherstellen, dass die tatsächliche
+            // Geometrie im d-Attribut steckt.
+            path.removeAttribute('data-path-id');
+        });
+
+    // ------------------------------------------
+    // SVG ALS STRING SERIALISIEREN
+    // ------------------------------------------
+
+    const serializer = new XMLSerializer();
+
+    let svgString =
+        serializer.serializeToString(exportSvg);
+
+    // XML-Deklaration hinzufügen
+    svgString =
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        svgString;
+
+    // ------------------------------------------
+    // DOWNLOAD
+    // ------------------------------------------
+
+    const blob = new Blob(
+        [svgString],
+        {
+            type: 'image/svg+xml;charset=utf-8'
+        }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'typo-distort.svg';
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+
+    console.log(
+        '[Export] SVG erfolgreich exportiert.'
+    );
+}        
+function getSVGPoint(e) {
+            const pt = svgCanvas.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const ctm = svgCanvas.getScreenCTM();
+            if (ctm) {
+                return pt.matrixTransform(ctm.inverse());
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function handlePointerDown(e) {
+            const pt = getSVGPoint(e);
+            const target = e.target;
+
+            // Aktion aus DOM-Attributen ermitteln
+            const action = target.getAttribute('data-action') || target.parentElement?.getAttribute('data-action');
+            const zoneId = target.getAttribute('data-zone-id') || target.parentElement?.getAttribute('data-zone-id');
+
+            if (action && zoneId) {
+                activeZoneId = zoneId;
+                const zone = deformationZones.find(z => z.id === zoneId);
+
+                if (action === 'delete-zone') {
+                    deleteZone(zoneId);
+                    return;
+                }
+
+                isDragging = true;
+                dragTarget = {
+                    type: action,
+                    zoneId: zoneId,
+                    startPt: pt,
+                    origZone: { ...zone }
+                };
+
+                renderOverlay();
+                updateUIStatus();
+                console.log(`[Interaction] Starte Drag: ${action} an Zone: ${zoneId}`);
+                return;
+            }
+
+            // Klick auf einen SVG-Pfad (Buchstaben auswählen)
+            if (target.classList.contains('deformable-path')) {
+                const pathId = target.getAttribute('data-path-id');
+                selectedPathId = pathId;
+                console.log(`[Interaction] Pfad ausgewählt: ${pathId}`);
+                renderOverlay();
+                updateUIStatus();
+                return;
+            }
+
+            // Klick auf leeren Hintergrund -> Pfadauswahl aufheben
+            selectedPathId = null;
+            renderOverlay();
+            updateUIStatus();
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging || !dragTarget) return;
+
+            const pt = getSVGPoint(e);
+            const zone = deformationZones.find(z => z.id === dragTarget.zoneId);
+            if (!zone) return;
+
+            const dx = pt.x - dragTarget.startPt.x;
+            const dy = pt.y - dragTarget.startPt.y;
+
+            if (dragTarget.type === 'drag-center' || dragTarget.type === 'select-zone') {
+                zone.x = dragTarget.origZone.x + dx;
+                zone.y = dragTarget.origZone.y + dy;
+            } 
+            else if (dragTarget.type === 'drag-radius') {
+    		const newRx = Math.max(20, dragTarget.origZone.radiusX + dx);
+    		zone.radiusX = newRx;
+    		zone.radiusY = newRx;
+	    }
+            else if (dragTarget.type === 'drag-dir') {
+                const vx = pt.x - zone.x;
+                const vy = pt.y - zone.y;
+                const len = Math.sqrt(vx * vx + vy * vy);
+
+                if (len > 3) {
+                    zone.dirX = vx / len;
+                    zone.dirY = vy / len;
+                    zone.strength = len;
+                }
+            }
+
+            // Neuberechnung der Verformung live während des Drags
+            applyDeformation();
+            renderOverlay();
+        }
+
+        function handlePointerUp() {
+            if (isDragging) {
+                isDragging = false;
+                dragTarget = null;
+                console.log("[Interaction] Drag beendet. Geometrie aktualisiert.");
+            }
+        }
+
+        // ==========================================
+        // 7. ZONEN-MANAGEMENT & ACTIONS
+        // ==========================================
+
+     function createNewZone() {
+    // Platziere neue Zone:
+    // 1. im ausgewählten Pfad
+    // 2. ansonsten in der Mitte des gesamten SVG-Inhalts
+    let spawnX = 500;
+    let spawnY = 200;
+
+    if (selectedPathId) {
+
+        const selectedObj = pathCache.find(
+            p => p.id === selectedPathId
+        );
+
+        if (selectedObj) {
+            const bbox = selectedObj.element.getBBox();
+
+            spawnX =
+                bbox.x +
+                bbox.width / 2;
+
+            spawnY =
+                bbox.y +
+                bbox.height / 2;
+        }
+
+    } else if (pathCache.length > 0) {
+
+        // ------------------------------------------
+        // MITTE DER GESAMTEN TYPOGRAFIE ERMITTELN
+        // ------------------------------------------
+
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+
+        pathCache.forEach(pathObj => {
+
+            const bbox = pathObj.element.getBBox();
+
+            minX = Math.min(
+                minX,
+                bbox.x
+            );
+
+            minY = Math.min(
+                minY,
+                bbox.y
+            );
+
+            maxX = Math.max(
+                maxX,
+                bbox.x + bbox.width
+            );
+
+            maxY = Math.max(
+                maxY,
+                bbox.y + bbox.height
+            );
+        });
+
+        if (
+            isFinite(minX) &&
+            isFinite(minY) &&
+            isFinite(maxX) &&
+            isFinite(maxY)
+        ) {
+            spawnX =
+                minX +
+                (maxX - minX) / 2;
+
+            spawnY =
+                minY +
+                (maxY - minY) / 2;
+        }
+
+    } else if (deformationZones.length > 0) {
+
+        // Leicht versetzt zur letzten Zone
+        const lastZone =
+            deformationZones[deformationZones.length - 1];
+
+        spawnX =
+            lastZone.x + 40;
+
+        spawnY =
+            lastZone.y + 20;
+    }
+
+            const newId = `zone_${zoneIdCounter++}`;
+            const newZone = {
+                id: newId,
+                x: spawnX,
+                y: spawnY,
+                radiusX: 75,
+                radiusY: 75,
+                strength: 35,
+                dirX: 0,
+                dirY: -1,
+                bend: 10
+            };
+
+            deformationZones.push(newZone);
+            activeZoneId = newId;
+
+            applyDeformation();
+            renderOverlay();
+            updateUIStatus();
+            console.log(`[ZoneManager] Neue Zone erzeugt: ${newId} bei (${spawnX}, ${spawnY})`);
+        }
+
+        function deleteZone(id) {
+            deformationZones = deformationZones.filter(z => z.id !== id);
+            if (activeZoneId === id) {
+                activeZoneId = deformationZones.length > 0 ? deformationZones[deformationZones.length - 1].id : null;
+            }
+            applyDeformation();
+            renderOverlay();
+            updateUIStatus();
+            console.log(`[ZoneManager] Zone entfernt: ${id}`);
+        }
+
+        function resetAll() {
+            deformationZones = [];
+            activeZoneId = null;
+            selectedPathId = null;
+
+            // Originalgeometrie 1:1 wiederherstellen
+            pathCache.forEach(pathObj => {
+                let pathD = '';
+                pathObj.subpaths.forEach(subpath => {
+                    subpath.points.forEach((pt, i) => {
+                        pt.x = pt.origX;
+                        pt.y = pt.origY;
+                        const xStr = pt.x.toFixed(2);
+                        const yStr = pt.y.toFixed(2);
+                        pathD += (i === 0) ? `M ${xStr} ${yStr}` : ` L ${xStr} ${yStr}`;
+                    });
+                    if (subpath.isClosed) pathD += ' Z';
+                    pathD += ' ';
+                });
+                pathObj.element.setAttribute('d', pathD.trim());
+            });
+
+            renderOverlay();
+            updateUIStatus();
+            console.log("[Workbench] Vollständiger Reset durchgeführt. Originalzustand wiederhergestellt.");
+        }
+
+        // ==========================================
+        // 8. DATEI-UPLOAD (CUSTOM SVG)
+        // ==========================================
+
+        function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.svg')) {
+        alert('Bitte eine SVG-Datei auswählen.');
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(evt) {
+        try {
+            const svgString = evt.target.result;
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+
+            // XML-Parserfehler erkennen
+            const parserError = doc.querySelector('parsererror');
+
+            if (parserError) {
+                console.error(parserError.textContent);
+                alert('Die SVG-Datei konnte nicht gelesen werden.');
+                return;
+            }
+
+            const uploadedSvg = doc.documentElement;
+
+            if (
+                !uploadedSvg ||
+                uploadedSvg.tagName.toLowerCase() !== 'svg'
+            ) {
+                alert('Ungültige SVG-Datei.');
+                return;
+            }
+
+            // ------------------------------------------
+            // VIEWBOX ÜBERNEHMEN
+            // ------------------------------------------
+
+            const viewBox = uploadedSvg.getAttribute('viewBox');
+
+            if (viewBox) {
+                svgCanvas.setAttribute('viewBox', viewBox);
+            } else {
+                const width = parseFloat(uploadedSvg.getAttribute('width')) || 1000;
+                const height = parseFloat(uploadedSvg.getAttribute('height')) || 400;
+
+                svgCanvas.setAttribute(
+                    'viewBox',
+                    `0 0 ${width} ${height}`
+                );
+            }
+
+         // ------------------------------------------
+            // ALTE INHALTE ENTFERNEN
+            // ------------------------------------------
+
+            contentLayer.innerHTML = '';
+
+            // NEU: Style-Blöcke (CSS) aus der SVG übernehmen (wichtig für Illustrator-Exporte)
+            const styleTags = uploadedSvg.querySelectorAll('style');
+            styleTags.forEach(styleEl => {
+                contentLayer.appendChild(styleEl.cloneNode(true));
+            });
+
+            // ------------------------------------------
+            // SVG-PFADE IMPORTIEREN
+            // ------------------------------------------
+
+            const sourcePaths = uploadedSvg.querySelectorAll('path');
+            let importCount = 0;
+
+            // NEU: Hilfsfunktion, die Attribute auch in übergeordneten <g>-Gruppen sucht
+            const getInheritedAttr = (node, attr) => {
+                let current = node;
+                while (current && current.tagName) {
+                    if (current.hasAttribute(attr)) return current.getAttribute(attr);
+                    current = current.parentNode;
+                }
+                return null;
+            };
+
+            sourcePaths.forEach((sourcePath, index) => {
+
+                const d = sourcePath.getAttribute('d');
+                if (!d) return;
+
+                const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathEl.setAttribute('d', d);
+                pathEl.setAttribute('id', `upload_path_${index + 1}`);
+                pathEl.setAttribute('data-path-id', `upload_path_${index + 1}`);
+
+                // NEU: Originale Klassen beibehalten, nur um "deformable-path" ergänzen
+                const originalClass = sourcePath.getAttribute('class') || '';
+                pathEl.setAttribute('class', `deformable-path ${originalClass}`.trim());
+
+                // --------------------------------------
+                // SVG STYLE & ORIGINALFARBEN ÜBERNEHMEN
+                // --------------------------------------
+
+                // 1. Inline-Styles vererbt übernehmen
+                const styleAttr = getInheritedAttr(sourcePath, 'style');
+                if (styleAttr) {
+                    pathEl.setAttribute('style', styleAttr);
+                }
+
+                // 2. Füllfarbe aus Gruppe oder Pfad übernehmen
+                const fillAttr = getInheritedAttr(sourcePath, 'fill');
+                if (fillAttr) {
+                    pathEl.setAttribute('fill', fillAttr);
+                } else if (!styleAttr && !originalClass) {
+                    // Fallback auf Standard, falls gar nichts gefunden wurde
+                    pathEl.setAttribute('fill', 'var(--text-main)');
+                }
+
+                // 3. Konturen & Deckkraft vererbt übernehmen
+                ['stroke', 'stroke-width', 'opacity', 'fill-opacity', 'stroke-opacity'].forEach(attr => {
+                    const val = getInheritedAttr(sourcePath, attr);
+                    if (val) {
+                        pathEl.setAttribute(attr, val);
+                    }
+                });
+
+                // --------------------------------------
+                // IN UNSERE CONTENT-LAYER EINSETZEN
+                // --------------------------------------
+
+                contentLayer.appendChild(pathEl);
+                importCount++;
+           
+            });
+
+            // ------------------------------------------
+            // PRÜFEN
+            // ------------------------------------------
+
+            if (importCount === 0) {
+                alert(
+                    'In der SVG-Datei wurden keine <path>-Elemente gefunden.\n\n' +
+                    'Bitte exportiere die Typografie als Pfade/Outlines.'
+                );
+
+                loadDemoSVG();
+                return;
+            }
+
+            // ------------------------------------------
+            // DEFORMATIONSZONEN ZURÜCKSETZEN
+            // ------------------------------------------
+
+            deformationZones = [];
+            activeZoneId = null;
+            selectedPathId = null;
+            zoneIdCounter = 1;
+
+            // ------------------------------------------
+            // GEOMETRIE NEU ANALYSIEREN
+            // ------------------------------------------
+
+            parseAndCacheGeometry();
+
+		// ------------------------------------------
+		// VIEWBOX AUTOMATISCH AN INHALT ANPASSEN
+		// ------------------------------------------
+
+		fitViewBoxToContent();
+
+            // ------------------------------------------
+            // AUTOMATISCHE STARTZONE
+            // ------------------------------------------
+
+            createNewZone();
+
+            renderOverlay();
+            updateUIStatus();
+
+            console.log(
+                `[Upload] SVG erfolgreich geladen. ${importCount} Pfade importiert.`
+            );
+
+        } catch (error) {
+
+            console.error('[Upload Error]', error);
+
+            alert(
+                'Beim Laden der SVG-Datei ist ein Fehler aufgetreten.'
+            );
+        }
+
+        // Ermöglicht erneutes Laden derselben Datei
+        fileInput.value = '';
+    };
+
+    reader.onerror = function() {
+        alert('Die SVG-Datei konnte nicht gelesen werden.');
+    };
+
+    reader.readAsText(file);
+}
+
+        // ==========================================
+        // 9. UI STATUS UPDATE
+        // ==========================================
+
+        function updateUIStatus() {
+            statPaths.textContent = pathCache.length;
+            statZones.textContent = deformationZones.length;
+            statActiveZone.textContent = activeZoneId ? activeZoneId : 'Keine';
+        }
+// ==========================================
+// 10. WEBM LIVE-VIDEO RECORDING
+// ==========================================
+
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordCanvas = document.createElement('canvas');
+let recordCtx = recordCanvas.getContext('2d');
+let animFrameId = null;
+
+function toggleWebMRecording() {
+    if (!isRecording) {
+        startWebMRecording();
+    } else {
+        stopWebMRecording();
+    }
+}
+
+function startWebMRecording() {
+    const viewBox = svgCanvas.viewBox.baseVal;
+    const baseWidth = viewBox.width || 1200;
+    const baseHeight = viewBox.height || 500;
+    
+    // 1. AUFLÖSUNG ERHÖHEN (Supersampling)
+    // Ziel: Mindestens 1920px Breite erzielen oder Auflösung verdoppeln
+    const scaleFactor = Math.max(2, 1920 / baseWidth);
+    
+    recordCanvas.width = Math.round(baseWidth * scaleFactor);
+    recordCanvas.height = Math.round(baseHeight * scaleFactor);
+
+    // 60 FPS für flüssige Bewegungen
+    const stream = recordCanvas.captureStream(60); 
+
+    let mimeType = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+    }
+
+    // 2. HOHE BITRATE EINSTELLEN (15 Mbit/s für gestochen scharfe Kanten)
+    const recorderOptions = {
+        mimeType: mimeType,
+        videoBitsPerSecond: 15000000 // 15 Mbps
+    };
+
+    try {
+        mediaRecorder = new MediaRecorder(stream, recorderOptions);
+    } catch (e) {
+        alert('WebM Videoaufzeichnung wird von diesem Browser nicht unterstützt.');
+        return;
+    }
+
+    recordedChunks = [];
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = exportWebMVideo;
+
+    isRecording = true;
+    mediaRecorder.start();
+
+    const btn = document.getElementById('btn-record-webm');
+    btn.style.backgroundColor = 'var(--accent-magenta)';
+    btn.querySelector('span').textContent = '⏹ Stop Recording';
+
+    renderRecordFrame();
+}
+
+function renderRecordFrame() {
+    if (!isRecording) return;
+
+    // SVG klonen und Overlay-Layer (Raster & Zonen) entfernen
+    const exportSvg = svgCanvas.cloneNode(true);
+    const overlay = exportSvg.querySelector('#svg-overlay-layer');
+    if (overlay) overlay.remove();
+
+    exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    // Selection-Klassen entfernen, damit Pfade rein dargestellt werden
+    exportSvg.querySelectorAll('.deformable-path').forEach(path => {
+        path.classList.remove('deformable-path', 'selected');
+    });
+
+    // SVG in Image wandeln & sauber auf Canvas zeichnen
+    const svgString = new XMLSerializer().serializeToString(exportSvg);
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+
+    img.onload = () => {
+        // Hintergrundeinfärbung (rein weiß, kein Raster)
+        recordCtx.fillStyle = '#ffffff';
+        recordCtx.fillRect(0, 0, recordCanvas.width, recordCanvas.height);
+        
+        // Reine Deformationsform zeichnen
+        recordCtx.drawImage(img, 0, 0, recordCanvas.width, recordCanvas.height);
+        URL.revokeObjectURL(url);
+
+        if (isRecording) {
+            animFrameId = requestAnimationFrame(renderRecordFrame);
+        }
+    };
+    img.src = url;
+}
+
+function stopWebMRecording() {
+    isRecording = false;
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+
+    // UI-Button zurücksetzen
+    const btn = document.getElementById('btn-record-webm');
+    btn.style.backgroundColor = '';
+    btn.querySelector('span').textContent = '🔴 Record WebM';
+}
+
+function exportWebMVideo() {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'typo-distort.webm';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log('[WebM Export] Video erfolgreich heruntergeladen.');
+}
+        // Starten
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
