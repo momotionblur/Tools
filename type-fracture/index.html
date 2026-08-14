@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TYPE FRACTURE</title>
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel-bg: #0a0a0c;
+      --border: #1a1a20;
+      --border-hover: #30303c;
+      --accent: #ffffff;
+      --text: #ececf0;
+      --muted: #555560;
+      --record: #ff3366;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 0.75rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    /* CANVAS BEREICH */
+    .canvas-box {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .status-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(10, 10, 12, 0.85);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      pointer-events: none;
+      transition: all 0.2s ease;
+    }
+
+    /* CONTROL PANEL */
+    .control-panel {
+      width: 100%;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .group-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* BUTTONS */
+    .btn {
+      background: #121216;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 600;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #1a1a22;
+      border-color: var(--border-hover);
+    }
+
+    .btn-active {
+      border-color: var(--text) !important;
+      background: #22222a !important;
+      color: #fff !important;
+    }
+
+    .btn-hero {
+      background: var(--text);
+      color: #000;
+      border: none;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0 18px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-hero:hover {
+      background: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-recording {
+      border-color: var(--record) !important;
+      color: var(--record) !important;
+      background: rgba(255, 51, 102, 0.12) !important;
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+
+    /* INPUTS & SLIDERS */
+    input[type="text"] {
+      background: #000;
+      border: 1px solid var(--border);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-align: center;
+      border-radius: 6px;
+      width: 36px;
+      height: 34px;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px 14px;
+      width: 100%;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .slider-label {
+      font-size: 0.58rem;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      width: 58px;
+      flex-shrink: 0;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 3px;
+      background: #1a1a20;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--text);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+      background: #fff;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      width: 100%;
+      margin: 2px 0;
+    }
+
+    @media (max-width: 560px) {
+      .slider-grid { grid-template-columns: repeat(2, 1fr); }
+      .control-row { flex-direction: column; align-items: stretch; }
+      .group { justify-content: space-between; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Type Fracture</h1>
+  </header>
+
+  <div class="app-container">
+    <div class="canvas-box">
+      <div id="statusBadge" class="status-badge">.ttf / .otf hochladen (optional)</div>
+      <!-- CANVAS GRÖSSE AUF 1000x1000 ERHÖHT -->
+      <canvas id="cvs" width="1000" height="1000"></canvas>
+    </div>
+
+    <div class="control-panel">
+      <!-- ZEILE 1: TYPE & FRACTURE HERO -->
+      <div class="control-row">
+        <div class="group">
+          <span class="group-label">TYPE</span>
+          <input type="text" id="txtInput" value="A" maxlength="2" title="Zeichen eingeben">
+          <label class="btn" title="Eigene Schriftart (.ttf/.otf) laden">
+            Font
+            <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
+          </label>
+        </div>
+
+        <div class="group">
+          <button class="btn btn-hero" id="btnRandom">FRACTURE ✦</button>
+          <button class="btn btn-active" id="btnPause">PAUSE</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ZEILE 2: SLIDER GRID -->
+      <div class="slider-grid">
+        <div class="slider-container">
+          <span class="slider-label">SPEED</span>
+          <input type="range" id="sSpeed" min="0.2" max="2.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="slider-container">
+          <span class="slider-label">PIECES</span>
+          <input type="range" id="sCount" min="4" max="20" step="1" value="8">
+        </div>
+
+        <div class="slider-container">
+          <span class="slider-label">LINES</span>
+          <input type="range" id="sTrail" min="4" max="100" step="1" value="32" title="Anzahl/Dichte der Schweif-Linien">
+        </div>
+
+        <div class="slider-container">
+          <span class="slider-label">STRETCH</span>
+          <input type="range" id="sLag" min="0.05" max="0.80" step="0.01" value="0.25" title="Maximale Schweif-Länge">
+        </div>
+
+        <div class="slider-container">
+          <span class="slider-label">TWIST</span>
+          <input type="range" id="sTwist" min="-180" max="180" step="5" value="45" title="Rotation der Linien">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ZEILE 3: EXPORT -->
+      <div class="control-row">
+        <div class="group">
+          <span class="group-label" id="modeIndicator">MODE: RADIAL</span>
+        </div>
+
+        <div class="group">
+          <button class="btn" id="btnExportSVG">SVG</button>
+          <button class="btn" id="btnExportWebM">WEBM (12s)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- CONSTANTS ---
+    const C_SIZE = 1000;
+    const C_CENTER = C_SIZE / 2; // 600
+
+    // --- APP STATE & SETUP ---
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    const statusBadge = document.getElementById('statusBadge');
+    const modeIndicator = document.getElementById('modeIndicator');
+
+    let font = null;
+    let text = 'A';
+    let fragmentTargetCount = 8;
+    let speedFactor = 1.0;
+    let trailSteps = 32;            
+    let trailLagFactor = 0.25;       
+    let trailTwistRad = 45 * (Math.PI / 180);
+    let isPlaying = true;
+    let isRecording = false;
+
+    const DEFAULT_SYSTEM_FONT = 'system-ui, -apple-system, sans-serif';
+
+    const TOTAL_LOOP_FRAMES = 600;
+    let currentFrame = 0;
+
+    let glyphPathData = '';
+    let glyphBounds = { x1: 400, y1: 350, x2: 800, y2: 850, w: 400, h: 500 };
+
+    let fractureMode = 'RADIAL';
+    let fragments = [];
+    let mouse = { x: -1000, y: -1000, active: false };
+
+    // --- FONT LOADING & CENTERED GLYPH EXTRACTION ---
+    document.getElementById('fontFileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      statusBadge.style.display = 'block';
+      statusBadge.innerText = 'Lade Schriftart...';
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          font = opentype.parse(evt.target.result);
+          if (font && font.supported) {
+            statusBadge.innerText = 'Eigene Schrift geladen';
+            setTimeout(() => { statusBadge.style.display = 'none'; }, 2000);
+            updateGlyphPath();
+          } else {
+            throw new Error('Nicht unterstützt');
+          }
+        } catch (err) {
+          statusBadge.innerText = 'Fehler beim Laden';
+          statusBadge.style.borderColor = '#ff4444';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function updateGlyphPath() {
+      if (!font) {
+        generateFallbackPath();
+        generateFractureSystem();
+        return;
+      }
+
+      const glyph = font.charToGlyph(text);
+      if (!glyph || glyph.index === 0) {
+        statusBadge.style.display = 'block';
+        statusBadge.innerText = `'${text}' in Schrift nicht vorhanden`;
+        return;
+      } else {
+        statusBadge.style.display = 'none';
+      }
+
+      const fontSize = text.length === 1 ? 480 : 300;
+      
+      const path = font.getPath(text, 0, 0, fontSize);
+      const bbox = path.getBoundingBox();
+
+      const dx = (C_SIZE - (bbox.x2 - bbox.x1)) / 2 - bbox.x1;
+      const dy = (C_SIZE - (bbox.y2 - bbox.y1)) / 2 - bbox.y1;
+
+      const transformedPath = font.getPath(text, dx, dy, fontSize);
+      glyphPathData = transformedPath.toPathData(2);
+
+      glyphBounds = {
+        x1: (C_SIZE - (bbox.x2 - bbox.x1)) / 2,
+        y1: (C_SIZE - (bbox.y2 - bbox.y1)) / 2,
+        x2: (C_SIZE + (bbox.x2 - bbox.x1)) / 2,
+        y2: (C_SIZE + (bbox.y2 - bbox.y1)) / 2,
+        w: bbox.x2 - bbox.x1,
+        h: bbox.y2 - bbox.y1
+      };
+
+      generateFractureSystem();
+    }
+
+    function generateFallbackPath() {
+      const offCvs = document.createElement('canvas');
+      offCvs.width = C_SIZE; offCvs.height = C_SIZE;
+      const offCtx = offCvs.getContext('2d');
+
+      offCtx.fillStyle = '#fff';
+      offCtx.font = `bold ${text.length === 1 ? 480 : 300}px ${DEFAULT_SYSTEM_FONT}`;
+      offCtx.textAlign = 'center';
+      offCtx.textBaseline = 'middle';
+      offCtx.fillText(text, C_CENTER, C_CENTER);
+
+      const metrics = offCtx.measureText(text);
+      const approxW = metrics.width;
+      const approxH = text.length === 1 ? 360 : 240;
+
+      glyphBounds = {
+        x1: C_CENTER - approxW / 2,
+        y1: C_CENTER - approxH / 2,
+        x2: C_CENTER + approxW / 2,
+        y2: C_CENTER + approxH / 2,
+        w: approxW,
+        h: approxH
+      };
+
+      glyphPathData = null;
+    }
+
+    // --- POLYGON GEOMETRY ENGINE ---
+    function clipPolygonByLine(poly, pointOnLine, normal) {
+      const d = -(normal.x * pointOnLine.x + normal.y * pointOnLine.y);
+      const pos = [];
+      const neg = [];
+
+      function dist(p) { return normal.x * p.x + normal.y * p.y + d; }
+
+      for (let i = 0; i < poly.length; i++) {
+        const curr = poly[i];
+        const next = poly[(i + 1) % poly.length];
+        const dCurr = dist(curr);
+        const dNext = dist(next);
+
+        if (dCurr >= 0) pos.push(curr);
+        if (dCurr <= 0) neg.push(curr);
+
+        if ((dCurr > 0 && dNext < 0) || (dCurr < 0 && dNext > 0)) {
+          const t = dCurr / (dCurr - dNext);
+          const intersect = {
+            x: curr.x + t * (next.x - curr.x),
+            y: curr.y + t * (next.y - curr.y)
+          };
+          pos.push(intersect);
+          neg.push(intersect);
+        }
+      }
+      return { pos, neg };
+    }
+
+    function getPolygonArea(poly) {
+      let area = 0;
+      for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length;
+        area += poly[i].x * poly[j].y;
+        area -= poly[j].x * poly[i].y;
+      }
+      return Math.abs(area) / 2;
+    }
+
+    function getPolygonCentroid(poly) {
+      let cx = 0, cy = 0;
+      const a = getPolygonArea(poly);
+      if (a === 0) return { x: C_CENTER, y: C_CENTER };
+
+      for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length;
+        const factor = (poly[i].x * poly[j].y - poly[j].x * poly[i].y);
+        cx += (poly[i].x + poly[j].x) * factor;
+        cy += (poly[i].y + poly[j].y) * factor;
+      }
+      return { x: cx / (6 * a), y: cy / (6 * a) };
+    }
+
+    // --- FRACTURE SYSTEM CREATION ---
+    function generateFractureSystem() {
+      const margin = 40;
+      const initialPoly = [
+        { x: Math.max(0, glyphBounds.x1 - margin), y: Math.max(0, glyphBounds.y1 - margin) },
+        { x: Math.min(C_SIZE, glyphBounds.x2 + margin), y: Math.max(0, glyphBounds.y1 - margin) },
+        { x: Math.min(C_SIZE, glyphBounds.x2 + margin), y: Math.min(C_SIZE, glyphBounds.y2 + margin) },
+        { x: Math.max(0, glyphBounds.x1 - margin), y: Math.min(C_SIZE, glyphBounds.y2 + margin) }
+      ];
+
+      let polys = [initialPoly];
+      const glyphCenter = { x: C_CENTER, y: C_CENTER };
+
+      let attempts = 0;
+      while (polys.length < fragmentTargetCount && attempts < 100) {
+        attempts++;
+        polys.sort((a, b) => getPolygonArea(b) - getPolygonArea(a));
+
+        const targetIdx = (polys.length > 2 && Math.random() < 0.45) 
+          ? Math.floor(1 + Math.random() * (polys.length - 1)) 
+          : 0;
+
+        const parent = polys[targetIdx];
+        if (getPolygonArea(parent) < 1000) break;
+
+        const centroid = getPolygonCentroid(parent);
+
+        let angle = 0;
+        if (fractureMode === 'RADIAL') {
+          const toCenter = Math.atan2(centroid.y - glyphCenter.y, centroid.x - glyphCenter.x);
+          angle = toCenter + Math.PI / 2 + (Math.random() - 0.5) * 0.4;
+        } else if (fractureMode === 'DIAGONAL') {
+          angle = (Math.random() < 0.5 ? Math.PI / 4 : (3 * Math.PI) / 4) + (Math.random() - 0.5) * 0.3;
+        } else if (fractureMode === 'CROSS') {
+          angle = (polys.length % 2 === 0 ? 0 : Math.PI / 2) + (Math.random() - 0.5) * 0.2;
+        } else if (fractureMode === 'SPLIT') {
+          angle = (polys.length === 1) ? Math.PI / 3 : Math.random() * Math.PI;
+        } else { // ORGANIC
+          angle = Math.random() * Math.PI * 2;
+        }
+
+        const normal = { x: Math.cos(angle), y: Math.sin(angle) };
+        const cutPoint = {
+          x: centroid.x + (Math.random() - 0.5) * 20,
+          y: centroid.y + (Math.random() - 0.5) * 20
+        };
+
+        const res = clipPolygonByLine(parent, cutPoint, normal);
+
+        if (res.pos.length >= 3 && res.neg.length >= 3 &&
+            getPolygonArea(res.pos) > 400 && getPolygonArea(res.neg) > 400) {
+          polys.splice(targetIdx, 1, res.pos, res.neg);
+        }
+      }
+
+      const totalArea = polys.reduce((acc, p) => acc + getPolygonArea(p), 0);
+
+      fragments = polys.map((poly, idx) => {
+        const area = getPolygonArea(poly);
+        const centroid = getPolygonCentroid(poly);
+        const relArea = area / totalArea;
+
+        let vx = centroid.x - glyphCenter.x;
+        let vy = centroid.y - glyphCenter.y;
+        let dist = Math.hypot(vx, vy);
+        if (dist === 0) { vx = 1; vy = 0; dist = 1; }
+        
+        const dirX = vx / dist;
+        const dirY = vy / dist;
+
+        const massFactor = Math.pow(1 - Math.min(1, relArea * 3.5), 1.8);
+        const driftDist = (15 + massFactor * 130 + dist * 0.25) * (0.8 + Math.random() * 0.4);
+        const rotAmp = (Math.random() - 0.5) * (0.05 + massFactor * 0.35);
+
+        return {
+          id: idx,
+          poly,
+          centroid,
+          area,
+          relArea,
+          dirX,
+          dirY,
+          driftDist,
+          rotAmp
+        };
+      });
+    }
+
+    // --- ANIMATION CALCULATION ---
+    function getFragmentTransformAtTime(frag, tNorm) {
+      const clampedT = Math.max(0, Math.min(1, tNorm));
+      
+      const envelope = Math.pow(Math.sin(Math.PI * clampedT), 2.2);
+      const wave = Math.sin(Math.PI * clampedT);
+
+      let dx = frag.dirX * frag.driftDist * envelope;
+      let dy = frag.dirY * frag.driftDist * envelope;
+      let rot = frag.rotAmp * wave;
+
+      if (mouse.active) {
+        const currentCenterX = frag.centroid.x + dx;
+        const currentCenterY = frag.centroid.y + dy;
+        const mDist = Math.hypot(currentCenterX - mouse.x, currentCenterY - mouse.y);
+
+        if (mDist < 180) {
+          const force = Math.pow(1 - mDist / 180, 2) * 50 * envelope;
+          const mAngle = Math.atan2(currentCenterY - mouse.y, currentCenterX - mouse.x);
+          dx += Math.cos(mAngle) * force;
+          dy += Math.sin(mAngle) * force;
+          rot += (Math.random() - 0.5) * 0.1 * force * 0.02;
+        }
+      }
+
+      return { dx, dy, rot };
+    }
+
+    // --- RENDER ENGINE ---
+    function renderGlyphOutline(targetCtx, lineWidth = 1.2) {
+      targetCtx.strokeStyle = '#ffffff';
+      targetCtx.lineWidth = lineWidth;
+
+      if (glyphPathData) {
+        const p2d = new Path2D(glyphPathData);
+        targetCtx.stroke(p2d);
+      } else {
+        targetCtx.font = `bold ${text.length === 1 ? 480 : 300}px ${DEFAULT_SYSTEM_FONT}`;
+        targetCtx.textAlign = 'center';
+        targetCtx.textBaseline = 'middle';
+        targetCtx.strokeText(text, C_CENTER, C_CENTER);
+      }
+    }
+
+    function drawFragmentOutline(frag, dx, dy, rot, lineWidth = 1.0, opacity = 1.0) {
+      if (opacity <= 0.001) return;
+
+      ctx.save();
+
+      ctx.translate(frag.centroid.x + dx, frag.centroid.y + dy);
+      ctx.rotate(rot);
+      ctx.translate(-frag.centroid.x, -frag.centroid.y);
+
+      ctx.beginPath();
+      frag.poly.forEach((pt, i) => {
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.globalAlpha = opacity;
+      renderGlyphOutline(ctx, lineWidth);
+
+      ctx.restore();
+    }
+
+    function transformPoint(pt, centroid, dx, dy, rot) {
+      const relX = pt.x - centroid.x;
+      const relY = pt.y - centroid.y;
+      const cos = Math.cos(rot);
+      const sin = Math.sin(rot);
+      return {
+        x: centroid.x + dx + (relX * cos - relY * sin),
+        y: centroid.y + dy + (relX * sin + relY * cos)
+      };
+    }
+
+    function render() {
+      if (isPlaying) {
+        currentFrame = (currentFrame + speedFactor) % TOTAL_LOOP_FRAMES;
+      }
+
+      const normTime = currentFrame / TOTAL_LOOP_FRAMES;
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, C_SIZE, C_SIZE);
+
+      const dynamicLag = trailLagFactor * Math.sin(Math.PI * normTime);
+
+      fragments.forEach(frag => {
+        const leadTf = getFragmentTransformAtTime(frag, normTime);
+
+        if (dynamicLag > 0.0001) {
+          const stepTransforms = [];
+
+          for (let s = 0; s <= trailSteps; s++) {
+            const ratio = s / trailSteps;
+
+            let tSub = normTime - (1 - ratio) * dynamicLag;
+            tSub = Math.max(0, Math.min(1, tSub));
+
+            const tf = getFragmentTransformAtTime(frag, tSub);
+
+            const subEnvelope = Math.pow(Math.sin(Math.PI * tSub), 2.2);
+            const twistOffset = (1 - ratio) * trailTwistRad * subEnvelope * (frag.id % 2 === 0 ? 1 : -1);
+            tf.rot += twistOffset;
+
+            stepTransforms.push({ ratio, tf });
+          }
+
+          // 1. VERBINDUNGSLINIEN (RIPPEN)
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 0.5;
+          ctx.globalAlpha = 0.25;
+
+          frag.poly.forEach(pt => {
+            ctx.beginPath();
+            stepTransforms.forEach((st, idx) => {
+              const pTrans = transformPoint(pt, frag.centroid, st.tf.dx, st.tf.dy, st.tf.rot);
+              if (idx === 0) ctx.moveTo(pTrans.x, pTrans.y);
+              else ctx.lineTo(pTrans.x, pTrans.y);
+            });
+            ctx.stroke();
+          });
+
+          // 2. SCHWEIF OUTLINES
+          for (let s = 0; s < trailSteps; s++) {
+            const { ratio, tf } = stepTransforms[s];
+            const alpha = Math.pow(ratio, 1.4) * 0.45 + 0.02;
+            drawFragmentOutline(frag, tf.dx, tf.dy, tf.rot, 0.8, alpha);
+          }
+        }
+
+        // 3. HAUPT-FRAGMENT OUTLINE
+        drawFragmentOutline(frag, leadTf.dx, leadTf.dy, leadTf.rot, 1.8, 1.0);
+      });
+
+      requestAnimationFrame(render);
+    }
+
+    // --- SVG EXPORT ---
+    function exportSVG() {
+      const normTime = currentFrame / TOTAL_LOOP_FRAMES;
+      const dynamicLag = trailLagFactor * Math.sin(Math.PI * normTime);
+
+      let clipDefs = '';
+      let fragmentGroups = '';
+
+      fragments.forEach((frag, i) => {
+        const leadTf = getFragmentTransformAtTime(frag, normTime);
+        const clipId = `frag-clip-${i}`;
+
+        const pointsStr = frag.poly.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        clipDefs += `    <clipPath id="${clipId}">\n      <polygon points="${pointsStr}" />\n    </clipPath>\n`;
+
+        const buildSvgOutline = (dx, dy, rot, strokeWidth, alpha) => {
+          if (alpha <= 0.001) return '';
+          const rotDeg = (rot * 180 / Math.PI).toFixed(2);
+          const transformAttr = `translate(${dx.toFixed(2)}, ${dy.toFixed(2)}) rotate(${rotDeg}, ${frag.centroid.x.toFixed(1)}, ${frag.centroid.y.toFixed(1)})`;
+          const opacityAttr = alpha < 1.0 ? ` opacity="${alpha.toFixed(3)}"` : '';
+
+          let content = '';
+          if (glyphPathData) {
+            content = `<path d="${glyphPathData}" fill="none" stroke="#ffffff" stroke-width="${strokeWidth}" fill-rule="evenodd" />`;
+          } else {
+            content = `<text x="${C_CENTER}" y="${C_CENTER}" font-family="${DEFAULT_SYSTEM_FONT}" font-size="${text.length === 1 ? 480 : 300}" font-weight="bold" text-anchor="middle" dominant-baseline="middle" fill="none" stroke="#ffffff" stroke-width="${strokeWidth}">${text}</text>`;
+          }
+
+          return `  <g clip-path="url(#${clipId})" transform="${transformAttr}"${opacityAttr}>\n    ${content}\n  </g>\n`;
+        };
+
+        if (dynamicLag > 0.0001) {
+          const stepTransforms = [];
+          for (let s = 0; s <= trailSteps; s++) {
+            const ratio = s / trailSteps;
+            let tSub = normTime - (1 - ratio) * dynamicLag;
+            tSub = Math.max(0, Math.min(1, tSub));
+
+            const tf = getFragmentTransformAtTime(frag, tSub);
+            const subEnvelope = Math.pow(Math.sin(Math.PI * tSub), 2.2);
+            tf.rot += (1 - ratio) * trailTwistRad * subEnvelope * (frag.id % 2 === 0 ? 1 : -1);
+            stepTransforms.push({ ratio, tf });
+          }
+
+          // Verbindungslinien in SVG
+          frag.poly.forEach(pt => {
+            let pathD = '';
+            stepTransforms.forEach((st, idx) => {
+              const pTrans = transformPoint(pt, frag.centroid, st.tf.dx, st.tf.dy, st.tf.rot);
+              pathD += (idx === 0) ? `M ${pTrans.x.toFixed(1)} ${pTrans.y.toFixed(1)}` : ` L ${pTrans.x.toFixed(1)} ${pTrans.y.toFixed(1)}`;
+            });
+            fragmentGroups += `  <path d="${pathD}" stroke="#ffffff" stroke-width="0.5" opacity="0.250" fill="none" />\n`;
+          });
+
+          // Schweif Outlines in SVG
+          for (let s = 0; s < trailSteps; s++) {
+            const { ratio, tf } = stepTransforms[s];
+            const alpha = Math.pow(ratio, 1.4) * 0.45 + 0.02;
+            fragmentGroups += buildSvgOutline(tf.dx, tf.dy, tf.rot, 0.8, alpha);
+          }
+        }
+
+        // Haupt-Fragment Outline
+        fragmentGroups += buildSvgOutline(leadTf.dx, leadTf.dy, leadTf.rot, 1.8, 1.0);
+      });
+
+      const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${C_SIZE} ${C_SIZE}" width="${C_SIZE}" height="${C_SIZE}">
+  <rect width="${C_SIZE}" height="${C_SIZE}" fill="#000000" />
+  <defs>
+${clipDefs}  </defs>
+${fragmentGroups}</svg>`;
+
+      const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `type-fracture-outline-${text}-${fractureMode.toLowerCase()}.svg`;
+      a.click();
+    }
+
+    // --- WEBM EXPORT ---
+    function exportWebM() {
+      if (isRecording) return;
+
+      const btn = document.getElementById('btnExportWebM');
+      const originalText = btn.innerHTML;
+
+      currentFrame = 0;
+      isPlaying = true;
+      isRecording = true;
+
+      let countdown = 10;
+      btn.innerHTML = `🔴 REC (${countdown}s)`;
+      btn.classList.add('btn-recording');
+
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          btn.innerHTML = `🔴 REC (${countdown}s)`;
+        }
+      }, 1000);
+
+      const stream = cvs.captureStream(60);
+
+      let options = { mimeType: 'video/webm;codecs=vp9' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+      }
+
+      const recorder = new MediaRecorder(stream, options);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        clearInterval(countdownInterval);
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `type-fracture-outline-${text}-${fractureMode.toLowerCase()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        btn.innerHTML = originalText;
+        btn.classList.remove('btn-recording');
+        isRecording = false;
+      };
+
+      recorder.start();
+
+      setTimeout(() => {
+        recorder.stop();
+      }, 12000);
+    }
+
+    // --- USER INTERACTION LISTENERS ---
+    document.getElementById('txtInput').addEventListener('input', (e) => {
+      text = e.target.value || 'A';
+      updateGlyphPath();
+    });
+
+    document.getElementById('sCount').addEventListener('input', (e) => {
+      fragmentTargetCount = parseInt(e.target.value, 10);
+      generateFractureSystem();
+    });
+
+    document.getElementById('sSpeed').addEventListener('input', (e) => {
+      speedFactor = parseFloat(e.target.value);
+    });
+
+    document.getElementById('sTrail').addEventListener('input', (e) => {
+      trailSteps = parseInt(e.target.value, 10);
+    });
+
+    document.getElementById('sLag').addEventListener('input', (e) => {
+      trailLagFactor = parseFloat(e.target.value);
+    });
+
+    document.getElementById('sTwist').addEventListener('input', (e) => {
+      trailTwistRad = parseFloat(e.target.value) * (Math.PI / 180);
+    });
+
+    const modes = ['RADIAL', 'DIAGONAL', 'CROSS', 'ORGANIC', 'SPLIT'];
+    document.getElementById('btnRandom').addEventListener('click', () => {
+      fractureMode = modes[Math.floor(Math.random() * modes.length)];
+      modeIndicator.innerText = `MODE: ${fractureMode}`;
+
+      currentFrame = 0;
+      generateFractureSystem();
+    });
+
+    const btnPause = document.getElementById('btnPause');
+    btnPause.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      btnPause.classList.toggle('btn-active', isPlaying);
+      btnPause.innerText = isPlaying ? 'PAUSE' : 'PLAY';
+    });
+
+    document.getElementById('btnExportSVG').addEventListener('click', exportSVG);
+    document.getElementById('btnExportWebM').addEventListener('click', exportWebM);
+
+    // Mausinteraktion an 1000x1000 px angepasst
+    cvs.addEventListener('mousemove', (e) => {
+      const r = cvs.getBoundingClientRect();
+      mouse.x = (e.clientX - r.left) * (C_SIZE / r.width);
+      mouse.y = (e.clientY - r.top) * (C_SIZE / r.height);
+      mouse.active = true;
+    });
+
+    cvs.addEventListener('mouseleave', () => {
+      mouse.active = false;
+    });
+
+    // --- INITIALISIERUNG ---
+    updateGlyphPath();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
