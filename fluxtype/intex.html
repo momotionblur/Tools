@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FLUX TYPE</title>
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel-bg: #0a0a0c;
+      --border: #1a1a20;
+      --border-hover: #30303c;
+      --accent: #ffffff;
+      --text: #ececf0;
+      --muted: #555560;
+      --record: #ff3366;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 0.75rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .canvas-box {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .status-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(10, 10, 12, 0.85);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      pointer-events: none;
+      transition: all 0.2s ease;
+    }
+
+    .control-panel {
+      width: 100%;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .group-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    .btn {
+      background: #121216;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 600;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #1a1a22;
+      border-color: var(--border-hover);
+    }
+
+    .btn-active {
+      border-color: var(--text) !important;
+      background: #22222a !important;
+      color: #fff !important;
+    }
+
+    .btn-hero {
+      background: var(--text);
+      color: #000;
+      border: none;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0 18px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-hero:hover {
+      background: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-recording {
+      border-color: var(--record) !important;
+      color: var(--record) !important;
+      background: rgba(255, 51, 102, 0.12) !important;
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+
+    input[type="text"] {
+      background: #000;
+      border: 1px solid var(--border);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-align: center;
+      border-radius: 6px;
+      width: 36px;
+      height: 34px;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    select {
+      background: #121216;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 600;
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus {
+      border-color: var(--border-hover);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .slider-label {
+      font-size: 0.58rem;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      width: 58px;
+      flex-shrink: 0;
+    }
+
+    .slider-value {
+      width: 42px;
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 0.58rem;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 3px;
+      background: #1a1a20;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--text);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+      background: #fff;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      width: 100%;
+      margin: 2px 0;
+    }
+
+    @media (max-width: 600px) {
+      .control-row { flex-direction: column; align-items: stretch; }
+      .group { justify-content: space-between; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>FLUX TYPE</h1>
+  </header>
+
+  <div class="app-container">
+    <div class="canvas-box">
+      <div id="statusBadge" class="status-badge" style="display:none;">Lade Schriftart...</div>
+      <canvas id="cvs" width="1200" height="1200"></canvas>
+    </div>
+
+    <div class="control-panel">
+      <div class="control-row">
+        <div class="group">
+          <span class="group-label">TYPE</span>
+          <input type="text" id="txtInput" value="S" maxlength="2" title="Zeichen eingeben">
+          <label class="btn" title="Eigene Schriftart (.ttf/.otf) laden">
+            Font
+            <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
+          </label>
+        </div>
+
+        <div class="group">
+          <span class="group-label">DYNAMICS</span>
+          <select id="selectMultipliers">
+            <option value="sync">Sync (Synchronic)</option>
+            <option value="dual">Dual (Counter-Rotating)</option>
+            <option value="chase" selected>Chase (Standard)</option>
+            <option value="harmonic">Harmonic (Staggered)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <div class="group">
+          <button class="btn btn-hero" id="btnRandom">RE-SEED ✦</button>
+          <button class="btn btn-active" id="btnPause">PAUSE</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="slider-container">
+        <span class="slider-label">SPEED</span>
+        <input type="range" id="sSpeed" min="0.2" max="2.0" step="0.1" value="0.8">
+        <span class="slider-value" id="vSpeed">0.8</span>
+      </div>
+
+      <div class="slider-container">
+        <span class="slider-label">VOICES</span>
+        <input type="range" id="sCount" min="4" max="16" step="2" value="12">
+        <span class="slider-value" id="vCount">12</span>
+      </div>
+
+      <div class="slider-container">
+        <span class="slider-label">LINES</span>
+        <input type="range" id="sLines" min="1" max="20" step="1" value="8">
+        <span class="slider-value" id="vLines">8</span>
+      </div>
+
+      <div class="slider-container">
+        <span class="slider-label">TRAIL LEN</span>
+        <input type="range" id="sTrail" min="0.1" max="0.8" step="0.05" value="0.35">
+        <span class="slider-value" id="vTrail">0.35</span>
+      </div>
+
+      <div class="slider-container">
+        <span class="slider-label">SPREAD</span>
+        <input type="range" id="sLag" min="0.10" max="0.40" step="0.02" value="0.30">
+        <span class="slider-value" id="vLag">0.30</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="control-row">
+        <div class="group">
+          <span class="group-label">CREATED BY MO MOTION BLUR</span>
+        </div>
+
+        <div class="group">
+          <button class="btn" id="btnExportSVG">SVG</button>
+          <button class="btn" id="btnExportWebM">WEBM (10s)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const C_SIZE = 1200;
+    const C_CENTER = C_SIZE / 2;
+
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    const statusBadge = document.getElementById('statusBadge');
+
+    let font = null;
+    let text = 'S';
+    
+    let voiceCount = 12;
+    let lineCountPerVoice = 8;
+    let speedFactor = 0.8;
+    let trailLengthRatio = 0.35;
+    const TRAIL_STEPS = 120;
+    let trailLagFactor = 0.30;       
+    let multiplierMode = 'chase';
+    
+    let isPlaying = true;
+    let isRecording = false;
+
+    let animationTime = 0;
+
+    let glyphContours = [];
+    let glyphBounds = { x1: 400, y1: 350, x2: 800, y2: 850, w: 400, h: 500 };
+    let fragments = [];
+    let mouse = { x: -1000, y: -1000, active: false };
+
+    const COLOR_THEMES = [
+      { base: 180, spread: 60, sat: 90 }, // Cyber Cyan / Teal
+      { base: 310, spread: 80, sat: 95 }, // Neon Magenta / Pink
+      { base: 90,  spread: 50, sat: 90 }, // Matrix Acid Green
+      { base: 230, spread: 70, sat: 100}, // Deep Electric Blue
+      { base: 25,  spread: 60, sat: 95 }, // Solar Orange / Gold
+      { base: 0,   spread: 0,  sat: 0  }  // Pure Monolith (Schwarz-Weiß / Silber)
+    ];
+    let activeTheme = COLOR_THEMES[0];
+
+    function extractContoursFromOpentype(opentypePath, targetStepDist = 3) {
+      const rawContours = [];
+      let currentContour = [];
+      let currX = 0, currY = 0;
+      let startX = 0, startY = 0;
+
+      function addPoint(x, y, px, py) {
+        const dx = x - px;
+        const dy = y - py;
+        const len = Math.hypot(dx, dy) || 1;
+        currentContour.push({ x, y, tx: dx / len, ty: dy / len, nx: -dy / len, ny: dx / len });
+      }
+
+      opentypePath.commands.forEach(cmd => {
+        if (cmd.type === 'M') {
+          if (currentContour.length > 0) {
+            rawContours.push(currentContour);
+            currentContour = [];
+          }
+          currX = cmd.x; currY = cmd.y;
+          startX = cmd.x; startY = cmd.y;
+        } else if (cmd.type === 'L') {
+          const dist = Math.hypot(cmd.x - currX, cmd.y - currY);
+          const steps = Math.max(1, Math.round(dist / targetStepDist));
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const px = currX + (cmd.x - currX) * t;
+            const py = currY + (cmd.y - currY) * t;
+            addPoint(px, py, currX, currY);
+            currX = px; currY = py;
+          }
+        } else if (cmd.type === 'Q') {
+          const approxLen = Math.hypot(cmd.x1 - currX, cmd.y1 - currY) + Math.hypot(cmd.x - cmd.x1, cmd.y - cmd.y1);
+          const steps = Math.max(2, Math.round(approxLen / targetStepDist));
+          let pX = currX, pY = currY;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const mt = 1 - t;
+            const x = mt*mt*currX + 2*mt*t*cmd.x1 + t*t*cmd.x;
+            const y = mt*mt*currY + 2*mt*t*cmd.y1 + t*t*cmd.y;
+            addPoint(x, y, pX, pY);
+            pX = x; pY = y;
+          }
+          currX = cmd.x; currY = cmd.y;
+        } else if (cmd.type === 'C') {
+          const approxLen = Math.hypot(cmd.x1 - currX, cmd.y1 - currY) + 
+                            Math.hypot(cmd.x2 - cmd.x1, cmd.y2 - cmd.y1) + 
+                            Math.hypot(cmd.x - cmd.x2, cmd.y - cmd.y2);
+          const steps = Math.max(2, Math.round(approxLen / targetStepDist));
+          let pX = currX, pY = currY;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const mt = 1 - t;
+            const x = mt*mt*mt*currX + 3*mt*mt*t*cmd.x1 + 3*mt*t*t*cmd.x2 + t*t*t*cmd.x;
+            const y = mt*mt*mt*currY + 3*mt*mt*t*cmd.y1 + 3*mt*t*t*cmd.y2 + t*t*t*cmd.y;
+            addPoint(x, y, pX, pY);
+            pX = x; pY = y;
+          }
+          currX = cmd.x; currY = cmd.y;
+        } else if (cmd.type === 'Z') {
+          const dist = Math.hypot(startX - currX, startY - currY);
+          if (dist > 0.1) {
+            const steps = Math.max(1, Math.round(dist / targetStepDist));
+            for (let i = 1; i <= steps; i++) {
+              const t = i / steps;
+              const px = currX + (startX - currX) * t;
+              const py = currY + (startY - currY) * t;
+              addPoint(px, py, currX, currY);
+              currX = px; currY = py;
+            }
+          }
+          if (currentContour.length > 0) {
+            rawContours.push(currentContour);
+            currentContour = [];
+          }
+        }
+      });
+      if (currentContour.length > 0) {
+        rawContours.push(currentContour);
+      }
+
+      const processedContours = rawContours.map(contour => {
+        if (contour.length < 3) return contour;
+
+        let totalLength = 0;
+        const segmentLengths = [0];
+        for (let i = 0; i < contour.length; i++) {
+          const p1 = contour[i];
+          const p2 = contour[(i + 1) % contour.length];
+          const d = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          totalLength += d;
+          segmentLengths.push(totalLength);
+        }
+
+        const targetSteps = Math.max(10, Math.round(totalLength / targetStepDist));
+        const resampled = [];
+
+        for (let s = 0; s < targetSteps; s++) {
+          const targetDist = (s / targetSteps) * totalLength;
+          
+          let segIdx = 0;
+          for (let i = 0; i < segmentLengths.length - 1; i++) {
+            if (targetDist >= segmentLengths[i] && targetDist <= segmentLengths[i+1]) {
+              segIdx = i;
+              break;
+            }
+          }
+
+          const segStartDist = segmentLengths[segIdx];
+          const segLen = segmentLengths[segIdx + 1] - segStartDist;
+          const localT = segLen > 0 ? (targetDist - segStartDist) / segLen : 0;
+
+          const p1 = contour[segIdx];
+          const p2 = contour[(segIdx + 1) % contour.length];
+
+          const x = p1.x + (p2.x - p1.x) * localT;
+          const y = p1.y + (p2.y - p1.y) * localT;
+          const nx = p1.nx + (p2.nx - p1.nx) * localT;
+          const ny = p1.ny + (p2.ny - p1.ny) * localT;
+          const tx = p1.tx + (p2.tx - p1.tx) * localT;
+          const ty = p1.ty + (p2.ty - p1.ty) * localT;
+
+          resampled.push({ x, y, tx, ty, nx, ny });
+        }
+
+        const len = resampled.length;
+        return resampled.map((pt, idx, arr) => {
+          let sumNx = 0, sumNy = 0;
+          let weightSum = 0;
+          for (let offset = -2; offset <= 2; offset++) {
+            const neighbor = arr[(idx + offset + len) % len];
+            const weight = 1 - Math.abs(offset) / 3;
+            sumNx += neighbor.nx * weight;
+            sumNy += neighbor.ny * weight;
+            weightSum += weight;
+          }
+          const nLen = Math.hypot(sumNx, sumNy) || 1;
+          return {
+            ...pt,
+            nx: sumNx / nLen,
+            ny: sumNy / nLen
+          };
+        });
+      });
+
+      return processedContours.filter(c => c.length > 2);
+    }
+
+    fetch('https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold.ttf')
+      .then(res => res.arrayBuffer())
+      .then(buffer => {
+        font = opentype.parse(buffer);
+        updateGlyphPath();
+      })
+      .catch(() => {
+        statusBadge.style.display = 'block';
+        statusBadge.innerText = 'Bitte eine .ttf/.otf Datei laden';
+      });
+
+    document.getElementById('fontFileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      statusBadge.style.display = 'block';
+      statusBadge.innerText = 'Lade Schriftart...';
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          font = opentype.parse(evt.target.result);
+          if (font && font.glyphs) {
+            statusBadge.innerText = 'Eigene Schrift geladen';
+            setTimeout(() => { statusBadge.style.display = 'none'; }, 2000);
+            updateGlyphPath();
+          } else {
+            throw new Error('Nicht unterstützt');
+          }
+        } catch (err) {
+          statusBadge.innerText = 'Fehler beim Laden';
+          statusBadge.style.borderColor = '#ff4444';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function updateGlyphPath() {
+      if (!font) return;
+
+      const glyph = font.charToGlyph(text);
+      if (!glyph || glyph.index === 0) {
+        statusBadge.style.display = 'block';
+        statusBadge.innerText = `'${text}' in Schrift nicht vorhanden`;
+        return;
+      } else {
+        statusBadge.style.display = 'none';
+      }
+
+      const fontSize = text.length === 1 ? 520 : 320;
+      const path = font.getPath(text, 0, 0, fontSize);
+      const bbox = path.getBoundingBox();
+
+      const dx = (C_SIZE - (bbox.x2 - bbox.x1)) / 2 - bbox.x1;
+      const dy = (C_SIZE - (bbox.y2 - bbox.y1)) / 2 - bbox.y1;
+
+      const centeredPath = font.getPath(text, dx, dy, fontSize);
+      glyphContours = extractContoursFromOpentype(centeredPath, 3);
+
+      glyphBounds = {
+        x1: (C_SIZE - (bbox.x2 - bbox.x1)) / 2,
+        y1: (C_SIZE - (bbox.y2 - bbox.y1)) / 2,
+        x2: (C_SIZE + (bbox.x2 - bbox.x1)) / 2,
+        y2: (C_SIZE + (bbox.y2 - bbox.y1)) / 2,
+        w: bbox.x2 - bbox.x1,
+        h: bbox.y2 - bbox.y1
+      };
+
+      generateOrganicTrailSystem(false);
+    }
+
+    function generateOrganicTrailSystem(pickNewTheme = false) {
+      if (glyphContours.length === 0) return;
+
+      if (pickNewTheme) {
+        activeTheme = COLOR_THEMES[Math.floor(Math.random() * COLOR_THEMES.length)];
+      }
+
+      fragments = [];
+
+      let loopMultipliers = [1, 2, -1, -2];
+      if (multiplierMode === 'sync') {
+        loopMultipliers = [1];
+      } else if (multiplierMode === 'dual') {
+        loopMultipliers = [1, -1];
+      } else if (multiplierMode === 'chase') {
+        loopMultipliers = [1, 2, -1, -2];
+      } else if (multiplierMode === 'harmonic') {
+        loopMultipliers = [1, 2, 3, -1];
+      }
+
+      for (let i = 0; i < voiceCount; i++) {
+        const contourIndex = i % glyphContours.length;
+        const contour = glyphContours[contourIndex];
+        
+        const seedIndex = Math.floor(Math.random() * contour.length);
+
+        const lineOffsets = [];
+        const ribbonWidth = 6 + (lineCountPerVoice * 2.5);
+
+        for (let k = 0; k < lineCountPerVoice; k++) {
+          const offset = ((k / Math.max(1, lineCountPerVoice - 1)) - 0.5) * ribbonWidth;
+          lineOffsets.push({ normalOffset: offset });
+        }
+
+        const chosenMultiplier = loopMultipliers[Math.floor(Math.random() * loopMultipliers.length)];
+
+        fragments.push({
+          id: i,
+          contourIndex,
+          seedIndex,
+          lineOffsets,
+          speedMult: chosenMultiplier,
+          hueOffset: (i / voiceCount) * activeTheme.spread
+        });
+      }
+    }
+
+    function getContourPointAtProgress(frag, ratio, t, currentLineOffset) {
+      const contour = glyphContours[frag.contourIndex] || glyphContours[0];
+      if (!contour || contour.length === 0) return { x: 0, y: 0 };
+      const contourLen = contour.length;
+
+      const headIdxVal = frag.seedIndex + t * contourLen * frag.speedMult;
+      const trailSpan = contourLen * trailLengthRatio * (trailLagFactor / 0.6);
+      const idxVal = headIdxVal - (1 - ratio) * trailSpan;
+
+      const floorIdx = Math.floor(idxVal);
+      const idx = ((floorIdx % contourLen) + contourLen) % contourLen;
+      const nextIdx = (idx + 1) % contourLen;
+      const frac = idxVal - floorIdx;
+
+      const p1 = contour[idx];
+      const p2 = contour[nextIdx];
+
+      const x = p1.x + (p2.x - p1.x) * frac;
+      const y = p1.y + (p2.y - p1.y) * frac;
+      const nx = p1.nx + (p2.nx - p1.nx) * frac;
+      const ny = p1.ny + (p2.ny - p1.ny) * frac;
+
+      let finalX = x + nx * currentLineOffset;
+      let finalY = y + ny * currentLineOffset;
+
+      if (mouse.active) {
+        const dist = Math.hypot(finalX - mouse.x, finalY - mouse.y);
+        if (dist < 200) {
+          const force = Math.pow(1 - dist / 200, 2) * 35;
+          const angle = Math.atan2(finalY - mouse.y, finalX - mouse.x);
+          finalX += Math.cos(angle) * force;
+          finalY += Math.sin(angle) * force;
+        }
+      }
+
+      return { x: finalX, y: finalY };
+    }
+
+    function render() {
+      if (isPlaying) {
+        animationTime += speedFactor * 0.001;
+      }
+
+      const t = animationTime % 1.0;
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, C_SIZE, C_SIZE);
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      fragments.forEach(frag => {
+        frag.lineOffsets.forEach((lineObj) => {
+          const stepPoints = [];
+
+          for (let s = 0; s <= TRAIL_STEPS; s++) {
+            const ratio = s / TRAIL_STEPS;
+            const pos = getContourPointAtProgress(frag, ratio, t, lineObj.normalOffset);
+            stepPoints.push({ ratio, x: pos.x, y: pos.y });
+          }
+
+          if (stepPoints.length < 2) return;
+
+          for (let s = 0; s < stepPoints.length - 1; s++) {
+            const p1 = stepPoints[s];
+            const p2 = stepPoints[s + 1];
+
+            const r = p1.ratio;
+            const trailAlpha = Math.pow(r, 1.5); 
+            if (trailAlpha < 0.001) continue;
+
+            const hue = (activeTheme.base + frag.hueOffset + r * 40) % 360;
+            const lightness = 45 + r * 45; 
+            ctx.strokeStyle = `hsl(${hue}, ${activeTheme.sat}%, ${lightness}%)`;
+            
+            ctx.lineWidth = Math.max(0.4, r * 1.8);
+            ctx.globalAlpha = Math.min(1.0, trailAlpha * 0.9);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(render);
+    }
+
+    function exportSVG() {
+      const t = animationTime % 1.0;
+      let fragmentGroups = '';
+
+      fragments.forEach((frag) => {
+        frag.lineOffsets.forEach((lineObj) => {
+          const stepPoints = [];
+
+          for (let s = 0; s <= TRAIL_STEPS; s++) {
+            const ratio = s / TRAIL_STEPS;
+            const pos = getContourPointAtProgress(frag, ratio, t, lineObj.normalOffset);
+            stepPoints.push({ ratio, x: pos.x, y: pos.y });
+          }
+
+          if (stepPoints.length < 2) return;
+
+          for (let s = 0; s < stepPoints.length - 1; s++) {
+            const p1 = stepPoints[s];
+            const p2 = stepPoints[s + 1];
+
+            const r = p1.ratio;
+            const lineAlpha = Math.pow(r, 1.2);
+            if (lineAlpha < 0.001) continue;
+
+            const hue = (activeTheme.base + frag.hueOffset + r * 40) % 360;
+            const lightness = 45 + r * 45;
+            const strokeColor = `hsl(${hue}, ${activeTheme.sat}%, ${lightness}%)`;
+
+            let w = Math.max(0.4, r * 1.8).toFixed(2);
+            let op = Math.min(1.0, lineAlpha * 0.95).toFixed(3);
+
+            fragmentGroups += `  <line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${strokeColor}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
+          }
+        });
+      });
+
+      const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${C_SIZE} ${C_SIZE}" width="${C_SIZE}" height="${C_SIZE}">
+  <rect width="${C_SIZE}" height="${C_SIZE}" fill="#000000" />
+${fragmentGroups}</svg>`;
+
+      const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `flux-type-${text}.svg`;
+      a.click();
+    }
+
+    function exportWebM() {
+  if (isRecording) return;
+
+  const btn = document.getElementById('btnExportWebM');
+  const originalText = btn.innerHTML;
+
+  // 1. Animation auf Anfang setzen und im Hintergrund starten
+  animationTime = 0;
+  isPlaying = true;
+  isRecording = true;
+
+  btn.innerHTML = `⏳ PRE-ROLL...`;
+
+  // 2. Kurz warten (z.B. 500ms), damit der Encoder warm wird, ERST DANN Recorder starten
+  setTimeout(() => {
+    let countdown = 10;
+    btn.innerHTML = `🔴 REC (${countdown}s)`;
+    btn.classList.add('btn-recording');
+
+    const stream = cvs.captureStream(60);
+    let options = { mimeType: 'video/webm;codecs=vp9' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      options = { mimeType: 'video/webm' };
+    }
+
+    const recorder = new MediaRecorder(stream, options);
+    const chunks = [];
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      clearInterval(countdownInterval);
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FluxType-${text}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      btn.innerHTML = originalText;
+      btn.classList.remove('btn-recording');
+      isRecording = false;
+    };
+
+    recorder.start();
+
+    const countdownInterval = setInterval(() => {
+      countdown--;
+      if (countdown > 0) {
+        btn.innerHTML = `🔴 REC (${countdown}s)`;
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      recorder.stop();
+    }, 10000);
+
+  }, 1000); // 1000ms Warm-up-Zeit vor dem Recording-Start
+}
+
+    document.getElementById('txtInput').addEventListener('input', (e) => {
+      text = e.target.value || 'S';
+      updateGlyphPath();
+    });
+
+    document.getElementById('selectMultipliers').addEventListener('change', (e) => {
+      multiplierMode = e.target.value;
+      generateOrganicTrailSystem(false);
+    });
+
+    document.getElementById('sCount').addEventListener('input', (e) => {
+      voiceCount = parseInt(e.target.value, 10);
+      generateOrganicTrailSystem(false);
+    });
+
+    document.getElementById('sLines').addEventListener('input', (e) => {
+      lineCountPerVoice = parseInt(e.target.value, 10);
+      generateOrganicTrailSystem(false);
+    });
+
+    document.getElementById('sSpeed').addEventListener('input', (e) => {
+      speedFactor = parseFloat(e.target.value);
+    });
+
+    document.getElementById('sTrail').addEventListener('input', (e) => {
+      trailLengthRatio = parseFloat(e.target.value);
+    });
+
+    document.getElementById('sLag').addEventListener('input', (e) => {
+      trailLagFactor = parseFloat(e.target.value);
+    });
+
+    function updateSliderValue(id, valueId, formatter = v => v) {
+      const slider = document.getElementById(id);
+      const output = document.getElementById(valueId);
+      if (!slider || !output) return;
+      const update = () => { output.textContent = formatter(slider.value); };
+      slider.addEventListener('input', update);
+      update();
+    }
+
+    updateSliderValue('sSpeed', 'vSpeed', v => Number(v).toFixed(1));
+    updateSliderValue('sCount', 'vCount', v => v);
+    updateSliderValue('sLines', 'vLines', v => v);
+    updateSliderValue('sTrail', 'vTrail', v => Number(v).toFixed(2));
+    updateSliderValue('sLag', 'vLag', v => Number(v).toFixed(2));
+
+    document.getElementById('btnRandom').addEventListener('click', () => {
+      generateOrganicTrailSystem(true);
+    });
+
+    const btnPause = document.getElementById('btnPause');
+    btnPause.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      btnPause.classList.toggle('btn-active', isPlaying);
+      btnPause.innerText = isPlaying ? 'PAUSE' : 'PLAY';
+    });
+
+    document.getElementById('btnExportSVG').addEventListener('click', exportSVG);
+    document.getElementById('btnExportWebM').addEventListener('click', exportWebM);
+
+    cvs.addEventListener('mousemove', (e) => {
+      const r = cvs.getBoundingClientRect();
+      mouse.x = (e.clientX - r.left) * (C_SIZE / r.width);
+      mouse.y = (e.clientY - r.top) * (C_SIZE / r.height);
+      mouse.active = true;
+    });
+
+    cvs.addEventListener('mouseleave', () => {
+      mouse.active = false;
+    });
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
